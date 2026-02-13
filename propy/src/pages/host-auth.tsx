@@ -127,15 +127,21 @@ export const HostAuthSystem = () => {
         <div className="magic-link-card">
           <h2>Event Created!</h2>
           <p>Share this link with your guests:</p>
-          <div className="magic-link-container">
-            {magicLink}
+          <div className="magic-link-wrapper">
+            <div className="magic-link-container">
+              {magicLink}
+            </div>
+            <button
+              onClick={() => navigator.clipboard.writeText(magicLink)}
+              className="copy-button"
+              title="Copy Link"
+            >
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="currentColor"/>
+                <path d="M15 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H15C16.1 23 17 22.1 17 21V7C17 5.9 16.1 5 15 5ZM15 21H8V7H15V21Z" fill="currentColor"/>
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={() => navigator.clipboard.writeText(magicLink)}
-            className="copy-button"
-          >
-            Copy Link
-          </button>
         </div>
       )}
     </div>
