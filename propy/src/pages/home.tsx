@@ -60,7 +60,7 @@ export function Home() {
     }
     return(
         <div className="home">
-            <form className="search" onSubmit={handleSearch}>
+            <form className="search-form" onSubmit={handleSearch}>
                 <input className="search-input" type="text" placeholder="Search for movies" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}/>
                 <button className="search-button" type='submit'> Search </button>
             </form>

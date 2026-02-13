@@ -6,7 +6,7 @@ export function Favorites() {
     const { favorites } = useMovieContext()
     if (favorites) {
        return (
-           <div className = "Favorites" >
+           <div className = "favorites" >
                 <h2>Your Favorites</h2>
                 <div className="movie-grid">
                     {favorites.map(
