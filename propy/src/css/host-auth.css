@@ -186,6 +186,13 @@
   margin-bottom: 1rem;
 }
 
+.magic-link-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
 .magic-link-container {
   background-color: #333;
   padding: 1rem;
@@ -193,22 +200,56 @@
   font-family: monospace;
   color: #64b5f6;
   word-break: break-all;
-  margin-bottom: 1rem;
+  flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 .copy-button {
   background-color: #4caf50;
-  padding: 0.75rem 1.5rem;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
   color: white;
   border-radius: 4px;
-  font-weight: 500;
   border: none;
   cursor: pointer;
   transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .copy-button:hover {
   background-color: #45a049;
+}
+
+.copy-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.copy-button {
+  background-color: #4caf50;
+  padding: 0.5rem;
+  color: white;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-button:hover {
+  background-color: #45a049;
+}
+
+.copy-button svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* Responsive */
