@@ -290,6 +290,13 @@
 }
 
 /* ==================== Claim Button ==================== */
+.menu-item.my-claimed {
+  background-color: rgba(76, 175, 80, 0.1);
+  border-color: #4caf50;
+  box-shadow: 0 0 0 20px rgba(76, 175, 80, 0.3);
+}
+
+/* ==================== Claim Button ==================== */
 .claim-button {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
@@ -297,7 +304,7 @@
   font-size: 0.875rem;
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, transform 0.2s;
 }
 
 .claim-button.enabled {
@@ -308,12 +315,46 @@
 
 .claim-button.enabled:hover {
   background-color: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.claim-button.enabled:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .claim-button.disabled {
   background-color: #333;
   color: #999;
   cursor: not-allowed;
+}
+
+.claim-button.disabled:hover {
+  background-color: #444;
+}
+
+/* ==================== Unclaim Button ==================== */
+.unclaim-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border: 2px solid #e50914;
+  background-color: transparent;
+  color: #e50914;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.unclaim-button:hover {
+  background-color: #e50914;
+  color: white;
+}
+
+.unclaim-button:active {
+  background-color: #f40612;
+  transform: scale(0.95);
 }
 
 /* ==================== Not Attending Message ==================== */
