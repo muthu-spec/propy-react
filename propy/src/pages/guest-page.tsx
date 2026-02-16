@@ -43,6 +43,35 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     localStorage.getItem(getEventKey('attending')) || null
   ); // null, 'Yes', 'No', 'not-sure'
 
+  // Track which item this guest has claimed
+  const [claimedItemId, setClaimedItemId] = useState<string | null>(
+    localStorage.getItem(getEventKey('claimed_item'))
+  );
+
+  // Local state for menu (with guest's claim)
+  const [menuState, setMenuState] = useState<MenuItem[]>(() => {
+    // Initialize from localStorage if available
+    const storedMenu = localStorage.getItem(getEventKey('menu_state'));
+    if (storedMenu) {
+      try {
+        return JSON.parse(storedMenu);
+      } catch {
+        return [];
+      }
+    }
+    // Start with eventData.menu
+    return eventData.menu.map(item => ({
+      ...item,
+      // If this guest has claimed this item, mark it
+      claimedBy: item.id === claimedItemId ? guestName : item.claimedBy
+    }));
+  });
+
+  // Sync menu state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem(getEventKey('menu_state'), JSON.stringify(menuState));
+  }, [menuState, eventId]);
+
   // 2. Countdown State
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [isMenuLive, setIsMenuLive] = useState<boolean>(
@@ -79,6 +108,39 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     localStorage.setItem(getEventKey('kids'), familyCount.kids.toString());
     setIsRegistered(true);
     // Logic: Update database with RSVP info
+  };
+
+  const handleClaim = (itemId: string) => {
+    if (!isMenuLive) return;
+
+    // Find item in eventData.menu
+    const item = eventData.menu.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (item.claimedBy === guestName) {
+      // Unclaim: this guest is unclaiming their own item
+      setClaimedItemId(null);
+      localStorage.removeItem(getEventKey('claimed_item'));
+      // Update menu state
+      setMenuState(prev => prev.map(i =>
+        i.id === itemId
+          ? { ...i, claimedBy: undefined }
+          : i
+      ));
+    } else if (item.claimedBy) {
+      // Someone else already claimed this item
+      alert('This item is already claimed by ' + item.claimedBy);
+    } else {
+      // Claim this item
+      setClaimedItemId(itemId);
+      localStorage.setItem(getEventKey('claimed_item'), itemId);
+      // Update menu state
+      setMenuState(prev => prev.map(i =>
+        i.id === itemId
+          ? { ...i, claimedBy: guestName }
+          : i
+      ));
+    }
   };
 
   // --- UI Renders ---
@@ -195,29 +257,47 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
         {isAttending === 'Yes' ? (
           <div className="menu-section">
             <h3>Potluck Menu</h3>
-            {eventData.menu.map(item => (
-              <div key={item.id} className={`menu-item ${item.claimedBy ? 'claimed' : 'available'}`}>
-                <div className="menu-item-header">
-                  <div>
-                    <p className={`menu-item-label ${item.claimedBy ? 'line-through' : ''}`}>
-                      {item.label}
-                    </p>
-                    {item.claimedBy && (
-                      <p className="menu-item-claimer">Claimed by {item.claimedBy}</p>
+            {menuState.map(item => {
+              const isClaimedByCurrentUser = item.claimedBy === guestName;
+              const canClaim = !item.claimedBy && isMenuLive && !claimedItemId;
+
+              return (
+                <div key={item.id} className={`menu-item ${
+                  item.claimedBy ? 'claimed' : 'available'
+                } ${isClaimedByCurrentUser ? 'my-claimed' : ''}`}>
+                  <div className="menu-item-header">
+                    <div>
+                      <p className={`menu-item-label ${item.claimedBy ? 'line-through' : ''}`}>
+                        {item.label}
+                      </p>
+                      {item.claimedBy && !isClaimedByCurrentUser && (
+                        <p className="menu-item-claimer">Claimed by {item.claimedBy}</p>
+                      )}
+                    </div>
+
+                    {!item.claimedBy && (
+                      <button
+                        disabled={!isMenuLive}
+                        onClick={() => handleClaim(item.id)}
+                        className={`claim-button ${canClaim ? 'enabled' : 'disabled'}`}
+                      >
+                        Claim
+                      </button>
+                    )}
+
+                    {isClaimedByCurrentUser && (
+                      <button
+                        onClick={() => handleClaim(item.id)}
+                        className="unclaim-button"
+                        title="Unclaim this item"
+                      >
+                        Unclaim
+                      </button>
                     )}
                   </div>
-
-                  {!item.claimedBy && (
-                    <button
-                      disabled={!isMenuLive}
-                      className={`claim-button ${isMenuLive ? 'enabled' : 'disabled'}`}
-                    >
-                      Claim
-                    </button>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="not-attending-message">
