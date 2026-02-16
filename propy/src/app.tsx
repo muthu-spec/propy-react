@@ -81,3 +81,32 @@ function App() {
 }
 
 export default App
+
+// ========== TESTING HELPERS - Remove in production ==========
+// Call this from browser console to set a custom drop time
+// Usage: setCustomDropTime('abc123', '2025-08-15T20:30:00.000Z')
+(window as any).setCustomDropTime = (eventId: string, time: string) => {
+  const storageKey = \`potluck_drop_time_\${eventId}\`;
+  localStorage.setItem(storageKey, time);
+  console.log(\`Set custom drop_time for event \${eventId}:\`, time);
+  console.log('Reloading the page will use this new time.');
+};
+
+// Call this from browser console to clear all custom drop times
+// Usage: clearCustomDropTimes()
+(window as any).clearCustomDropTimes = () => {
+  Object.keys(localStorage)
+    .filter(key => key.startsWith('potluck_drop_time_'))
+    .forEach(key => localStorage.removeItem(key));
+  console.log('Cleared all custom drop times');
+};
+
+// Call this from browser console to see current drop times
+// Usage: listDropTimes()
+(window as any).listDropTimes = () => {
+  const dropTimes = Object.keys(localStorage)
+    .filter(key => key.startsWith('potluck_drop_time_'))
+    .map(key => ({ eventId: key.replace('potluck_drop_time_', ''), dropTime: localStorage.getItem(key) }));
+  console.table(dropTimes);
+};
+// =========================================================
