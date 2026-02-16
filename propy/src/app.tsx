@@ -11,20 +11,20 @@ import './css/app.css'
 // In production, drop_time comes from database (set by host)
 const getDropTimeForEvent = (eventId: string): string => {
   const storageKey = `potluck_drop_time_${eventId}`;
-  
-  // Check if we already generated a drop_time for this event
+
+  // Check if we already generated a drop time for this event
   const storedDropTime = localStorage.getItem(storageKey);
   if (storedDropTime) {
     return storedDropTime;
   }
-  
-  // Generate a new drop_time (2-4 hours from now)
+
+  // Generate a new drop time (2-4 hours from now)
   const eventIdHash = eventId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
   const now = Date.now();
   const baseTime = now + 3 * 60 * 60 * 1000; // 3 hours from now
   const offset = (eventIdHash % 120) * 60 * 1000; // 0-119 minutes offset
   const dropTime = new Date(baseTime + offset).toISOString();
-  
+
   // Store it so it's consistent across reloads
   localStorage.setItem(storageKey, dropTime);
   return dropTime;
@@ -81,32 +81,3 @@ function App() {
 }
 
 export default App
-
-// ========== TESTING HELPERS - Remove in production ==========
-// Call this from browser console to set a custom drop time
-// Usage: setCustomDropTime('abc123', '2025-08-15T20:30:00.000Z')
-(window as any).setCustomDropTime = (eventId: string, time: string) => {
-  const storageKey = \`potluck_drop_time_\${eventId}\`;
-  localStorage.setItem(storageKey, time);
-  console.log(\`Set custom drop_time for event \${eventId}:\`, time);
-  console.log('Reloading the page will use this new time.');
-};
-
-// Call this from browser console to clear all custom drop times
-// Usage: clearCustomDropTimes()
-(window as any).clearCustomDropTimes = () => {
-  Object.keys(localStorage)
-    .filter(key => key.startsWith('potluck_drop_time_'))
-    .forEach(key => localStorage.removeItem(key));
-  console.log('Cleared all custom drop times');
-};
-
-// Call this from browser console to see current drop times
-// Usage: listDropTimes()
-(window as any).listDropTimes = () => {
-  const dropTimes = Object.keys(localStorage)
-    .filter(key => key.startsWith('potluck_drop_time_'))
-    .map(key => ({ eventId: key.replace('potluck_drop_time_', ''), dropTime: localStorage.getItem(key) }));
-  console.table(dropTimes);
-};
-// =========================================================
