@@ -41,15 +41,21 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData }) => {
 
   // 2. Countdown State
   const [timeLeft, setTimeLeft] = useState<string>("");
-  const [isMenuLive, setIsMenuLive] = useState<boolean>(false);
+  const [isMenuLive, setIsMenuLive] = useState<boolean>(
+    localStorage.getItem('potluck_menu_live') === 'true'
+  );
 
   useEffect(() => {
+    // If menu is already live, don't start timer
+    if (isMenuLive) return;
+
     const timer = setInterval(() => {
       const now = new Date().getTime();
       const distance = new Date(eventData.drop_time).getTime() - now;
 
       if (distance < 0) {
         setIsMenuLive(true);
+        localStorage.setItem('potluck_menu_live', 'true');
         clearInterval(timer);
       } else {
         const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -59,7 +65,7 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData }) => {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [eventData.drop_time]);
+  }, [eventData.drop_time, isMenuLive]);
 
   const handleRSVP = (e: { preventDefault: () => void }) => {
     e.preventDefault();
