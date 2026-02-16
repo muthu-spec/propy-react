@@ -113,34 +113,44 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
   const handleClaim = (itemId: string) => {
     if (!isMenuLive) return;
 
-    // Find item in eventData.menu
-    const item = eventData.menu.find(i => i.id === itemId);
-    if (!item) return;
+    // Find item in current menu state (to get latest claimedBy info)
+    const currentItem = menuState.find(i => i.id === itemId);
+    if (!currentItem) return;
 
-    if (item.claimedBy === guestName) {
-      // Unclaim: this guest is unclaiming their own item
-      setClaimedItemId(null);
-      localStorage.removeItem(getEventKey('claimed_item'));
-      // Update menu state
-      setMenuState(prev => prev.map(i =>
-        i.id === itemId
-          ? { ...i, claimedBy: undefined }
-          : i
-      ));
-    } else if (item.claimedBy) {
-      // Someone else already claimed this item
-      alert('This item is already claimed by ' + item.claimedBy);
-    } else {
-      // Claim this item
-      setClaimedItemId(itemId);
-      localStorage.setItem(getEventKey('claimed_item'), itemId);
-      // Update menu state
-      setMenuState(prev => prev.map(i =>
-        i.id === itemId
-          ? { ...i, claimedBy: guestName }
-          : i
-      ));
+    // Check if already claimed by anyone (not just this guest)
+    if (currentItem.claimedBy) {
+      if (currentItem.claimedBy === guestName) {
+        // This guest is unclaiming their own item
+        setClaimedItemId(null);
+        localStorage.removeItem(getEventKey('claimed_item'));
+        // Update menu state
+        setMenuState(prev => prev.map(i =>
+          i.id === itemId
+            ? { ...i, claimedBy: undefined }
+            : i
+        ));
+      } else {
+        // Someone else already claimed this item
+        alert('This item is already claimed by ' + currentItem.claimedBy);
+      }
+      return;
     }
+
+    // Check if this guest has already claimed something (one item limit)
+    if (claimedItemId) {
+      alert('You can only claim one item. Unclaim your current item first.');
+      return;
+    }
+
+    // Claim this item
+    setClaimedItemId(itemId);
+    localStorage.setItem(getEventKey('claimed_item'), itemId);
+    // Update menu state
+    setMenuState(prev => prev.map(i =>
+      i.id === itemId
+        ? { ...i, claimedBy: guestName }
+        : i
+    ));
   };
 
   // --- UI Renders ---
@@ -260,6 +270,7 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
             {menuState.map(item => {
               const isClaimedByCurrentUser = item.claimedBy === guestName;
               const canClaim = !item.claimedBy && isMenuLive && !claimedItemId;
+              const isAlreadyClaimed = !!item.claimedBy;
 
               return (
                 <div key={item.id} className={`menu-item ${
@@ -277,7 +288,7 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
 
                     {!item.claimedBy && (
                       <button
-                        disabled={!isMenuLive}
+                        disabled={!isMenuLive || isAlreadyClaimed}
                         onClick={() => handleClaim(item.id)}
                         className={`claim-button ${canClaim ? 'enabled' : 'disabled'}`}
                       >
@@ -287,6 +298,7 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
 
                     {isClaimedByCurrentUser && (
                       <button
+                        disabled={!isMenuLive}
                         onClick={() => handleClaim(item.id)}
                         className="unclaim-button"
                         title="Unclaim this item"
