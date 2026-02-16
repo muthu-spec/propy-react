@@ -37,7 +37,7 @@ const getMockEventData = (eventId: string) => {
 
   return {
     title: "Summer BBQ Potluck",
-    date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tomorrow
+    date: new Date(Date.now()).toISOString().split('T')[0], // Tomorrow
     location: "Miller's Backyard",
     drop_time: dropTime,
     menu: [
