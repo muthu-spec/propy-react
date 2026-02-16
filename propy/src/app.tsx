@@ -31,8 +31,7 @@ function GuestPageWrapper() {
   const { eventId } = useParams<{ eventId: string }>();
   // TODO: Fetch event data from API using eventId
   // For now, use mock data
-  console.log(`${eventId}`)
-  return <GuestPage eventData={mockEventData} />;
+  return <GuestPage eventData={mockEventData} eventId={eventId || ''} />;
 }
 
 function App() {
