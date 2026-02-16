@@ -18,6 +18,7 @@ interface EventData {
 
 interface GuestPageProps {
   eventData: EventData;
+  eventId: string;
 }
 
 interface FamilyCount {
@@ -25,24 +26,27 @@ interface FamilyCount {
   kids: number;
 }
 
-const GuestPage: React.FC<GuestPageProps> = ({ eventData }) => {
+const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
+  // Generate event-specific localStorage keys
+  const getEventKey = (key: string) => `potluck_${key}_${eventId}`;
+
   // 1. Identify User from LocalStorage
-  const [guestName, setGuestName] = useState<string>(localStorage.getItem('potluck_name') || '');
-  const [isRegistered, setIsRegistered] = useState<boolean>(!!localStorage.getItem('potluck_name'));
+  const [guestName, setGuestName] = useState<string>(localStorage.getItem(getEventKey('name')) || '');
+  const [isRegistered, setIsRegistered] = useState<boolean>(!!localStorage.getItem(getEventKey('name')));
   const [familyCount, setFamilyCount] = useState<FamilyCount>(
     {
-      adults: parseInt(localStorage.getItem('potluck_adults') || '2'),
-      kids: parseInt(localStorage.getItem('potluck_kids') || '0')
+      adults: parseInt(localStorage.getItem(getEventKey('adults')) || '2'),
+      kids: parseInt(localStorage.getItem(getEventKey('kids')) || '0')
     }
   );
   const [isAttending, setIsAttending] = useState<string | null>(
-    localStorage.getItem('potluck_attending') || null
+    localStorage.getItem(getEventKey('attending')) || null
   ); // null, 'Yes', 'No', 'not-sure'
 
   // 2. Countdown State
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [isMenuLive, setIsMenuLive] = useState<boolean>(
-    localStorage.getItem('potluck_menu_live') === 'true'
+    localStorage.getItem(getEventKey('menu_live')) === 'true'
   );
 
   useEffect(() => {
@@ -55,7 +59,7 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData }) => {
 
       if (distance < 0) {
         setIsMenuLive(true);
-        localStorage.setItem('potluck_menu_live', 'true');
+        localStorage.setItem(getEventKey('menu_live'), 'true');
         clearInterval(timer);
       } else {
         const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -69,10 +73,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData }) => {
 
   const handleRSVP = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    localStorage.setItem('potluck_name', guestName);
-    localStorage.setItem('potluck_attending', isAttending || 'not-sure');
-    localStorage.setItem('potluck_adults', familyCount.adults.toString());
-    localStorage.setItem('potluck_kids', familyCount.kids.toString());
+    localStorage.setItem(getEventKey('name'), guestName);
+    localStorage.setItem(getEventKey('attending'), isAttending || 'not-sure');
+    localStorage.setItem(getEventKey('adults'), familyCount.adults.toString());
+    localStorage.setItem(getEventKey('kids'), familyCount.kids.toString());
     setIsRegistered(true);
     // Logic: Update database with RSVP info
   };
