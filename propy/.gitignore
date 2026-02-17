@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Old Express server and data folder
+server.js
+data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
