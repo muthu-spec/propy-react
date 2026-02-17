@@ -26,6 +26,67 @@ interface FamilyCount {
   kids: number;
 }
 
+// Mock Database Types
+interface Claim {
+  eventId: string;
+  itemId: string;
+  guestName: string;
+  claimTime: string;
+}
+
+// Mock Database for Multi-User Claim Tracking
+// This simulates a database using localStorage to share claims across all users
+const mockDatabase = {
+  STORAGE_KEY: 'potluck_claims_database',
+
+  getAllClaims(): Claim[] {
+    try {
+      const data = localStorage.getItem(this.STORAGE_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  addClaim(claim: Claim): void {
+    const claims = this.getAllClaims();
+    claims.push(claim);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(claims));
+  },
+
+  removeClaim(eventId: string, itemId: string): void {
+    const claims = this.getAllClaims().filter(
+      c => !(c.eventId === eventId && c.itemId === itemId)
+    );
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(claims));
+  },
+
+  getItemClaimer(eventId: string, itemId: string): string | undefined {
+    const claims = this.getAllClaims();
+    const claim = claims.find(
+      c => c.eventId === eventId && c.itemId === itemId
+    );
+    return claim?.guestName;
+  },
+
+  isItemClaimed(eventId: string, itemId: string): boolean {
+    return !!this.getItemClaimer(eventId, itemId);
+  },
+
+  // Get all claims for a specific event
+  getClaimsForEvent(eventId: string): Claim[] {
+    return this.getAllClaims().filter(c => c.eventId === eventId);
+  },
+
+  // Check if a specific guest has claimed any item in an event
+  getGuestClaimedItemId(eventId: string, guestName: string): string | null {
+    const claim = this.getAllClaims().find(
+      c => c.eventId === eventId && c.guestName === guestName
+    );
+    return claim?.itemId || null;
+  }
+};
+
 const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
   // Generate event-specific localStorage keys
   const getEventKey = (key: string) => `potluck_${key}_${eventId}`;
@@ -43,40 +104,71 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     localStorage.getItem(getEventKey('attending')) || null
   ); // null, 'Yes', 'No', 'not-sure'
 
-  // Track which item this guest has claimed
-  const [claimedItemId, setClaimedItemId] = useState<string | null>(
-    localStorage.getItem(getEventKey('claimed_item'))
-  );
-
-  // Local state for menu (with guest's claim)
-  const [menuState, setMenuState] = useState<MenuItem[]>(() => {
-    // Initialize from localStorage if available
-    const storedMenu = localStorage.getItem(getEventKey('menu_state'));
-    if (storedMenu) {
-      try {
-        return JSON.parse(storedMenu);
-      } catch {
-        return [];
-      }
-    }
-    // Start with eventData.menu
-    return eventData.menu.map(item => ({
-      ...item,
-      // If this guest has claimed this item, mark it
-      claimedBy: item.id === claimedItemId ? guestName : item.claimedBy
-    }));
+  // Track which item this guest has claimed (from mock database)
+  const [claimedItemId, setClaimedItemId] = useState<string | null>(() => {
+    // Check mock database for this guest's claim
+    const claim = mockDatabase.getClaimsForEvent(eventId).find(
+      c => c.guestName === guestName
+    );
+    return claim?.itemId || null;
   });
 
-  // Sync menu state to localStorage when it changes
+  // Local state for menu (initialized from mock database)
+  const [menuState, setMenuState] = useState<MenuItem[]>(() => {
+    // Get all claims for this event from mock database
+    const eventClaims = mockDatabase.getClaimsForEvent(eventId);
+
+    // Build menu with claim status from database
+    return eventData.menu.map(item => {
+      const claim = eventClaims.find(c => c.itemId === item.id);
+      return {
+        ...item,
+        claimedBy: claim?.guestName
+      };
+    });
+  });
+
+  // Sync claimedItemId from database when guestName is available
   useEffect(() => {
-    localStorage.setItem(getEventKey('menu_state'), JSON.stringify(menuState));
-  }, [menuState, eventId]);
+    if (guestName) {
+      const dbClaimedItemId = mockDatabase.getGuestClaimedItemId(eventId, guestName);
+      setClaimedItemId(dbClaimedItemId);
+    }
+  }, [guestName, eventId]);
 
   // 2. Countdown State
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [isMenuLive, setIsMenuLive] = useState<boolean>(
     localStorage.getItem(getEventKey('menu_live')) === 'true'
   );
+
+  // Poll the database periodically to get updates from other users
+  useEffect(() => {
+    if (!isMenuLive) return;
+
+    const pollInterval = setInterval(() => {
+      const eventClaims = mockDatabase.getClaimsForEvent(eventId);
+
+      // Refresh menu state from database
+      setMenuState(prev => prev.map(item => {
+        const claim = eventClaims.find(c => c.itemId === item.id);
+        return {
+          ...item,
+          claimedBy: claim?.guestName
+        };
+      }));
+
+      // Sync this guest's claimedItemId (functional update to prevent cascading renders)
+      if (guestName) {
+        setClaimedItemId(prev => {
+          const dbClaimedItemId = mockDatabase.getGuestClaimedItemId(eventId, guestName);
+          return dbClaimedItemId === prev ? prev : dbClaimedItemId;
+        });
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [eventId, guestName, isMenuLive]);
 
   useEffect(() => {
     // If menu is already live, don't start timer
@@ -122,7 +214,8 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
       if (currentItem.claimedBy === guestName) {
         // This guest is unclaiming their own item
         setClaimedItemId(null);
-        localStorage.removeItem(getEventKey('claimed_item'));
+        // Remove claim from mock database
+        mockDatabase.removeClaim(eventId, itemId);
         // Update menu state
         setMenuState(prev => prev.map(i =>
           i.id === itemId
@@ -144,7 +237,13 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
 
     // Claim this item
     setClaimedItemId(itemId);
-    localStorage.setItem(getEventKey('claimed_item'), itemId);
+    // Add claim to mock database
+    mockDatabase.addClaim({
+      eventId,
+      itemId,
+      guestName,
+      claimTime: new Date().toISOString()
+    });
     // Update menu state
     setMenuState(prev => prev.map(i =>
       i.id === itemId
