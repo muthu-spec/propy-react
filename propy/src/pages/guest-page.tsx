@@ -1,5 +1,6 @@
 import React, { useState, useEffect, type ChangeEvent } from 'react';
 import '../css/guest-page.css';
+import claimsApi from '../services/claims-api';
 
 // Types
 interface MenuItem {
@@ -26,67 +27,6 @@ interface FamilyCount {
   kids: number;
 }
 
-// Mock Database Types
-interface Claim {
-  eventId: string;
-  itemId: string;
-  guestName: string;
-  claimTime: string;
-}
-
-// Mock Database for Multi-User Claim Tracking
-// This simulates a database using localStorage to share claims across all users
-const mockDatabase = {
-  STORAGE_KEY: 'potluck_claims_database',
-
-  getAllClaims(): Claim[] {
-    try {
-      const data = localStorage.getItem(this.STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
-    } catch {
-      return [];
-    }
-  },
-
-  addClaim(claim: Claim): void {
-    const claims = this.getAllClaims();
-    claims.push(claim);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(claims));
-  },
-
-  removeClaim(eventId: string, itemId: string): void {
-    const claims = this.getAllClaims().filter(
-      c => !(c.eventId === eventId && c.itemId === itemId)
-    );
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(claims));
-  },
-
-  getItemClaimer(eventId: string, itemId: string): string | undefined {
-    const claims = this.getAllClaims();
-    const claim = claims.find(
-      c => c.eventId === eventId && c.itemId === itemId
-    );
-    return claim?.guestName;
-  },
-
-  isItemClaimed(eventId: string, itemId: string): boolean {
-    return !!this.getItemClaimer(eventId, itemId);
-  },
-
-  // Get all claims for a specific event
-  getClaimsForEvent(eventId: string): Claim[] {
-    return this.getAllClaims().filter(c => c.eventId === eventId);
-  },
-
-  // Check if a specific guest has claimed any item in an event
-  getGuestClaimedItemId(eventId: string, guestName: string): string | null {
-    const claim = this.getAllClaims().find(
-      c => c.eventId === eventId && c.guestName === guestName
-    );
-    return claim?.itemId || null;
-  }
-};
-
 const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
   // Generate event-specific localStorage keys
   const getEventKey = (key: string) => `potluck_${key}_${eventId}`;
@@ -104,35 +44,48 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     localStorage.getItem(getEventKey('attending')) || null
   ); // null, 'Yes', 'No', 'not-sure'
 
-  // Track which item this guest has claimed (from mock database)
-  const [claimedItemId, setClaimedItemId] = useState<string | null>(() => {
-    // Check mock database for this guest's claim
-    const claim = mockDatabase.getClaimsForEvent(eventId).find(
-      c => c.guestName === guestName
-    );
-    return claim?.itemId || null;
-  });
+  // Track which item this guest has claimed (from API)
+  const [claimedItemId, setClaimedItemId] = useState<string | null>(null);
 
-  // Local state for menu (initialized from mock database)
-  const [menuState, setMenuState] = useState<MenuItem[]>(() => {
-    // Get all claims for this event from mock database
-    const eventClaims = mockDatabase.getClaimsForEvent(eventId);
+  // Local state for menu (initialized from API)
+  const [menuState, setMenuState] = useState<MenuItem[]>(eventData.menu);
 
-    // Build menu with claim status from database
-    return eventData.menu.map(item => {
-      const claim = eventClaims.find(c => c.itemId === item.id);
-      return {
-        ...item,
-        claimedBy: claim?.guestName
-      };
-    });
-  });
+  // Load claims from API on mount
+  useEffect(() => {
+    const loadClaims = async () => {
+      try {
+        const eventClaims = await claimsApi.getClaimsForEvent(eventId);
 
-  // Sync claimedItemId from database when guestName is available
+        // Build menu with claim status from API
+        setMenuState(eventData.menu.map(item => {
+          const claim = eventClaims.find(c => c.itemId === item.id);
+          return {
+            ...item,
+            claimedBy: claim?.guestName
+          };
+        }));
+
+        // Load this guest's claimed item if registered
+        if (guestName) {
+          const dbClaimedItemId = await claimsApi.getGuestClaimedItemId(eventId, guestName);
+          setClaimedItemId(dbClaimedItemId);
+        }
+      } catch (error) {
+        console.error('Failed to load claims:', error);
+      }
+    };
+
+    loadClaims();
+  }, [eventId, eventData.menu, guestName]);
+
+  // Sync this guest's claimedItemId when they RSVP (guestName changes)
   useEffect(() => {
     if (guestName) {
-      const dbClaimedItemId = mockDatabase.getGuestClaimedItemId(eventId, guestName);
-      setClaimedItemId(dbClaimedItemId);
+      const syncClaimedItemId = async () => {
+        const dbClaimedItemId = await claimsApi.getGuestClaimedItemId(eventId, guestName);
+        setClaimedItemId(dbClaimedItemId);
+      };
+      syncClaimedItemId();
     }
   }, [guestName, eventId]);
 
@@ -142,28 +95,32 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     localStorage.getItem(getEventKey('menu_live')) === 'true'
   );
 
-  // Poll the database periodically to get updates from other users
+  // Poll the API periodically to get updates from other users
   useEffect(() => {
     if (!isMenuLive) return;
 
-    const pollInterval = setInterval(() => {
-      const eventClaims = mockDatabase.getClaimsForEvent(eventId);
+    const pollInterval = setInterval(async () => {
+      try {
+        const eventClaims = await claimsApi.getClaimsForEvent(eventId);
 
-      // Refresh menu state from database
-      setMenuState(prev => prev.map(item => {
-        const claim = eventClaims.find(c => c.itemId === item.id);
-        return {
-          ...item,
-          claimedBy: claim?.guestName
-        };
-      }));
+        // Refresh menu state from API
+        setMenuState(prev => prev.map(item => {
+          const claim = eventClaims.find(c => c.itemId === item.id);
+          return {
+            ...item,
+            claimedBy: claim?.guestName
+          };
+        }));
 
-      // Sync this guest's claimedItemId (functional update to prevent cascading renders)
-      if (guestName) {
-        setClaimedItemId(prev => {
-          const dbClaimedItemId = mockDatabase.getGuestClaimedItemId(eventId, guestName);
-          return dbClaimedItemId === prev ? prev : dbClaimedItemId;
-        });
+        // Sync this guest's claimedItemId (functional update to prevent cascading renders)
+        if (guestName) {
+          const dbClaimedItemId = await claimsApi.getGuestClaimedItemId(eventId, guestName);
+          setClaimedItemId(prev => {
+            return dbClaimedItemId === prev ? prev : dbClaimedItemId;
+          });
+        }
+      } catch (error) {
+        console.error('Failed to poll claims:', error);
       }
     }, 3000); // Poll every 3 seconds
 
@@ -202,7 +159,7 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     // Logic: Update database with RSVP info
   };
 
-  const handleClaim = (itemId: string) => {
+  const handleClaim = async (itemId: string) => {
     if (!isMenuLive) return;
 
     // Find item in current menu state (to get latest claimedBy info)
@@ -213,15 +170,20 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     if (currentItem.claimedBy) {
       if (currentItem.claimedBy === guestName) {
         // This guest is unclaiming their own item
-        setClaimedItemId(null);
-        // Remove claim from mock database
-        mockDatabase.removeClaim(eventId, itemId);
-        // Update menu state
-        setMenuState(prev => prev.map(i =>
-          i.id === itemId
-            ? { ...i, claimedBy: undefined }
-            : i
-        ));
+        try {
+          setClaimedItemId(null);
+          // Remove claim from API
+          await claimsApi.removeClaim(eventId, itemId);
+          // Update menu state
+          setMenuState(prev => prev.map(i =>
+            i.id === itemId
+              ? { ...i, claimedBy: undefined }
+              : i
+          ));
+        } catch (error) {
+          alert('Failed to unclaim item. Please try again.');
+          console.error('Unclaim error:', error);
+        }
       } else {
         // Someone else already claimed this item
         alert('This item is already claimed by ' + currentItem.claimedBy);
@@ -236,20 +198,27 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     }
 
     // Claim this item
-    setClaimedItemId(itemId);
-    // Add claim to mock database
-    mockDatabase.addClaim({
-      eventId,
-      itemId,
-      guestName,
-      claimTime: new Date().toISOString()
-    });
-    // Update menu state
-    setMenuState(prev => prev.map(i =>
-      i.id === itemId
-        ? { ...i, claimedBy: guestName }
-        : i
-    ));
+    try {
+      setClaimedItemId(itemId);
+      // Add claim to API
+      await claimsApi.addClaim({
+        eventId,
+        itemId,
+        guestName,
+        claimTime: new Date().toISOString()
+      });
+      // Update menu state
+      setMenuState(prev => prev.map(i =>
+        i.id === itemId
+          ? { ...i, claimedBy: guestName }
+          : i
+      ));
+    } catch (error) {
+      // Reset claimedItemId if API call failed
+      setClaimedItemId(null);
+      alert('Failed to claim item. It may have been claimed by someone else. Please refresh.');
+      console.error('Claim error:', error);
+    }
   };
 
   // --- UI Renders ---
@@ -309,13 +278,21 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
             <div className="family-count">
               <div className="family-count-item">
                 <label>Adults</label>
-                <input type="number" className="auth-input mb-0" value={familyCount.adults}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFamilyCount({...familyCount, adults: parseInt(e.target.value) || 0})} />
+                <input
+                  type="number"
+                  className="auth-input mb-0"
+                  value={familyCount.adults}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFamilyCount({...familyCount, adults: parseInt(e.target.value) || 0})}
+                />
               </div>
               <div className="family-count-item">
                 <label>Kids</label>
-                <input type="number" className="auth-input mb-0" value={familyCount.kids}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFamilyCount({...familyCount, kids: parseInt(e.target.value) || 0})} />
+                <input
+                  type="number"
+                  className="auth-input mb-0"
+                  value={familyCount.kids}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFamilyCount({...familyCount, kids: parseInt(e.target.value) || 0})}
+                />
               </div>
             </div>
           )}
