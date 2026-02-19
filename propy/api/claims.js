@@ -1,54 +1,38 @@
 // Vercel Serverless Function for Claims API
 // Uses Vercel Blob for persistent storage
 
-let blobClient = null;
-
-// Initialize Blob when available
-async function initBlob() {
-  if (!blobClient) {
-    try {
-      // Check if running in Vercel environment
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        const { put } = await import('@vercel/blob');
-        blobClient = put({
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-        });
-      }
-    } catch (error) {
-      console.error('Blob initialization failed:', error);
-    }
-  }
-  return blobClient;
-}
-
 // Helper to get all claims
 async function getClaims() {
-  const blob = await initBlob();
-  if (blob) {
-    try {
-      // Try to get the claims blob
-      const { blobs } = await blob.list({
+  try {
+    // Check if running in Vercel environment
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const { find, head } = await import('@vercel/blob');
+      const token = process.env.BLOB_READ_WRITE_TOKEN;
+
+      // Find all blobs with prefix
+      const blobs = await find({
         prefix: 'potluck-claims-',
+        token,
       });
 
-      if (blobs.length > 0) {
+      if (blobs.blobs.length > 0) {
         // Get the latest blob (sorted by uploadedAt)
-        const sortedBlobs = blobs.sort((a, b) => {
+        const sortedBlobs = blobs.blobs.sort((a, b) => {
           return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
         });
         const latestBlob = sortedBlobs[0];
 
-        // Get blob content
-        const { url } = await blob.get(latestBlob.pathname);
+        // Get blob content using head to get URL
+        const { url } = await head(latestBlob.url, { token });
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.text();
           return data ? JSON.parse(data) : [];
         }
       }
-    } catch (error) {
-      console.error('Failed to get claims from Blob:', error);
     }
+  } catch (error) {
+    console.error('Failed to get claims from Blob:', error);
   }
   // Fallback to in-memory (for local development)
   if (!globalThis.inMemoryClaims) {
@@ -59,22 +43,27 @@ async function getClaims() {
 
 // Helper to save all claims
 async function saveClaims(claims) {
-  const blob = await initBlob();
-  if (blob) {
-    try {
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const { put, del } = await import('@vercel/blob');
+      const token = process.env.BLOB_READ_WRITE_TOKEN;
+
       // Create a blob with timestamp for versioning
       const timestamp = Date.now();
       const pathname = `potluck-claims-${timestamp}.json`;
 
       // Upload claims as a new blob
-      await blob.put(pathname, JSON.stringify(claims), {
+      await put(pathname, JSON.stringify(claims), {
+        token,
         contentType: 'application/json',
         access: 'public',
       });
 
       // Clean up old blobs (keep only last 10)
-      const { blobs } = await blob.list({
+      const { find } = await import('@vercel/blob');
+      const { blobs } = await find({
         prefix: 'potluck-claims-',
+        token,
       });
 
       if (blobs.length > 10) {
@@ -84,15 +73,15 @@ async function saveClaims(claims) {
         const oldBlobs = sortedBlobs.slice(10);
         for (const oldBlob of oldBlobs) {
           try {
-            await blob.delete(oldBlob.pathname);
+            await del(oldBlob.url, { token });
           } catch (error) {
             console.error('Failed to delete old blob:', error);
           }
         }
       }
-    } catch (error) {
-      console.error('Failed to save claims to Blob:', error);
     }
+  } catch (error) {
+    console.error('Failed to save claims to Blob:', error);
   }
   // Always update in-memory fallback
   globalThis.inMemoryClaims = claims;
@@ -209,7 +198,7 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error('Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 
   return res.status(404).json({ error: 'Not found' });
