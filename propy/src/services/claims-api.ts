@@ -1,9 +1,9 @@
 // Claims API Service for Multi-User Claim Tracking
 // Uses Vercel serverless functions with Blob storage
 
-// For Vercel deployment, VITE_API_URL is empty (uses relative paths)
-// For local development, VITE_API_URL is empty (uses relative paths, falls back to in-memory)
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// For Vercel deployment, VITE_API_URL is empty (uses /api prefix for serverless functions)
+// For local development, VITE_API_URL is empty (uses /api prefix, falls back to in-memory)
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export interface Claim {
   eventId: string;
