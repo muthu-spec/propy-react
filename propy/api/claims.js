@@ -76,50 +76,51 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { url } = req;
   const method = req.method;
+  const url = req.url;
 
-  // Parse URL to get path segments
-  // Remove leading '/api' if present and trim slashes
-  const pathWithoutApi = url.replace(/^\/api/, '').replace(/^\/+|\/+$/g, '');
-  const pathParts = pathWithoutApi ? pathWithoutApi.split('/') : [];
+  // Simple path matching
+  const isRootClaimsRoute = url === '/api/claims' || url === '/api/claims/';
 
   try {
     const claims = await getClaims();
 
     if (method === 'GET') {
-      // GET /api/claims or /api/claims/
-      if (pathParts.length === 0 || (pathParts.length === 1 && pathParts[0] === '')) {
+      // GET /api/claims
+      if (isRootClaimsRoute) {
         return res.json(claims);
       }
 
       // GET /api/claims/:eventId
-      if (pathParts.length === 1) {
-        const eventId = decodeURIComponent(pathParts[0]);
+      const eventIdMatch = url.match(/^\/api\/claims\/([^\/]+)$/);
+      if (eventIdMatch) {
+        const eventId = decodeURIComponent(eventIdMatch[1]);
         const eventClaims = claims.filter(c => c.eventId === eventId);
         return res.json(eventClaims);
       }
 
       // GET /api/claims/:eventId/items/:itemId
-      if (pathParts.length === 3 && pathParts[1] === 'items') {
-        const eventId = decodeURIComponent(pathParts[0]);
-        const itemId = decodeURIComponent(pathParts[2]);
+      const itemMatch = url.match(/^\/api\/claims\/([^\/]+)\/items\/([^\/]+)$/);
+      if (itemMatch) {
+        const eventId = decodeURIComponent(itemMatch[1]);
+        const itemId = decodeURIComponent(itemMatch[2]);
         const claim = claims.find(c => c.eventId === eventId && c.itemId === itemId);
         return res.json({ claimedBy: claim?.guestName || null });
       }
 
       // GET /api/claims/:eventId/guests/:guestName
-      if (pathParts.length === 3 && pathParts[1] === 'guests') {
-        const eventId = decodeURIComponent(pathParts[0]);
-        const guestName = decodeURIComponent(pathParts[2]);
+      const guestMatch = url.match(/^\/api\/claims\/([^\/]+)\/guests\/([^\/]+)$/);
+      if (guestMatch) {
+        const eventId = decodeURIComponent(guestMatch[1]);
+        const guestName = decodeURIComponent(guestMatch[2]);
         const guestClaims = claims.filter(c => c.eventId === eventId && c.guestName === guestName);
         return res.json(guestClaims);
       }
     }
 
     if (method === 'POST') {
-      // POST /api/claims or /api/claims/
-      if (pathParts.length === 0 || (pathParts.length === 1 && pathParts[0] === '')) {
+      // POST /api/claims
+      if (isRootClaimsRoute) {
         const { eventId, itemId, guestName } = req.body;
 
         if (!eventId || !itemId || !guestName) {
@@ -152,16 +153,17 @@ export default async function handler(req, res) {
     }
 
     if (method === 'DELETE') {
-      // DELETE /api/claims or /api/claims/
-      if (pathParts.length === 0 || (pathParts.length === 1 && pathParts[0] === '')) {
+      // DELETE /api/claims
+      if (isRootClaimsRoute) {
         await saveClaims([]);
         return res.json({ success: true });
       }
 
       // DELETE /api/claims/:eventId/items/:itemId
-      if (pathParts.length === 3 && pathParts[1] === 'items') {
-        const eventId = decodeURIComponent(pathParts[0]);
-        const itemId = decodeURIComponent(pathParts[2]);
+      const itemMatch = url.match(/^\/api\/claims\/([^\/]+)\/items\/([^\/]+)$/);
+      if (itemMatch) {
+        const eventId = decodeURIComponent(itemMatch[1]);
+        const itemId = decodeURIComponent(itemMatch[2]);
 
         const claimIndex = claims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
         if (claimIndex === -1) {
