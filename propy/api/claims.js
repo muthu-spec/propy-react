@@ -80,9 +80,9 @@ export default async function handler(req, res) {
   const method = req.method;
 
   // Parse URL to get path segments
-  // Remove leading '/api' if present and trailing slashes
-  const pathWithoutApi = url.replace(/^\/api/, '').replace(/^\//, '').replace(/\/$/, '');
-  const pathParts = pathWithoutApi.split('/').filter(p => p);
+  // Remove leading '/api' if present and trim slashes
+  const pathWithoutApi = url.replace(/^\/api/, '').replace(/^\/+|\/+$/g, '');
+  const pathParts = pathWithoutApi ? pathWithoutApi.split('/') : [];
 
   try {
     const claims = await getClaims();
