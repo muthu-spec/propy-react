@@ -44,7 +44,7 @@ async function getClaims() {
 async function saveClaims(claims) {
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const { put, del } = await import('@vercel/blob');
+      const { put } = await import('@vercel/blob');
       const token = process.env.BLOB_READ_WRITE_TOKEN;
 
       // Create a blob with timestamp for versioning
@@ -57,27 +57,6 @@ async function saveClaims(claims) {
         contentType: 'application/json',
         access: 'public',
       });
-
-      // Clean up old blobs (keep only last 10)
-      const { list } = await import('@vercel/blob');
-      const { blobs } = await list({
-        prefix: 'potluck-claims-',
-        token,
-      });
-
-      if (blobs.length > 10) {
-        const sortedBlobs = blobs.sort((a, b) => {
-          return new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
-        });
-        const oldBlobs = sortedBlobs.slice(10);
-        for (const oldBlob of oldBlobs) {
-          try {
-            await del(oldBlob.url, { token });
-          } catch (error) {
-            console.error('Failed to delete old blob:', error);
-          }
-        }
-      }
     }
   } catch (error) {
     console.error('Failed to save claims to Blob:', error);
@@ -141,8 +120,7 @@ export default async function handler(req, res) {
     if (method === 'POST') {
       // POST /api/claims or /api/claims/
       if (pathParts.length === 0 || (pathParts.length === 1 && pathParts[0] === '')) {
-        const body = await req.json();
-        const { eventId, itemId, guestName } = body;
+        const { eventId, itemId, guestName } = req.body;
 
         if (!eventId || !itemId || !guestName) {
           return res.status(400).json({ error: 'Missing required fields' });
@@ -200,4 +178,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 
+  return res.status(404).json({ error: 'Not found' });
 }
