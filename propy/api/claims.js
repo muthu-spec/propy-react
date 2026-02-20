@@ -6,11 +6,11 @@ async function getClaims() {
   try {
     // Check if running in Vercel environment
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const { find, head } = await import('@vercel/blob');
+      const { list } = await import('@vercel/blob');
       const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-      // Find all blobs with prefix
-      const blobs = await find({
+      // List all blobs with prefix
+      const blobs = await list({
         prefix: 'potluck-claims-',
         token,
       });
@@ -22,9 +22,8 @@ async function getClaims() {
         });
         const latestBlob = sortedBlobs[0];
 
-        // Get blob content using head to get URL
-        const { url } = await head(latestBlob.url, { token });
-        const response = await fetch(url);
+        // Get blob content directly via its url
+        const response = await fetch(latestBlob.url);
         if (response.ok) {
           const data = await response.text();
           return data ? JSON.parse(data) : [];
@@ -60,8 +59,8 @@ async function saveClaims(claims) {
       });
 
       // Clean up old blobs (keep only last 10)
-      const { find } = await import('@vercel/blob');
-      const { blobs } = await find({
+      const { list } = await import('@vercel/blob');
+      const { blobs } = await list({
         prefix: 'potluck-claims-',
         token,
       });
