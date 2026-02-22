@@ -73,12 +73,15 @@ export default async function handler(req, res) {
   const method = req.method;
   const url = req.url;
 
-  // Simple path matching
+  // Parse URL: split by / and filter empty strings
+  const urlParts = url.split('/').filter(p => p.trim());
+
+  // Root route for listing events
   const isRootClaimsRoute = url === '/api/claims' || url === '/api/claims/';
 
   try {
     if (method === 'GET') {
-      // GET /api/claims - List all event files (for debugging/admin)
+      // GET /api/claims - List all event files
       if (isRootClaimsRoute) {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           const { list } = await import('@vercel/blob');
@@ -102,18 +105,8 @@ export default async function handler(req, res) {
         return res.json(events);
       }
 
-      // GET /api/claims/:eventId
-      const eventIdMatch = url.match(/^\/api\/claims\/([^\/]+)$/);
-      if (eventIdMatch) {
-        const eventId = decodeURIComponent(eventIdMatch[1]);
-        const claims = await getClaimsForEvent(eventId);
-        return res.json(claims);
-      }
-
-      // GET /api/claims/:eventId/items/:itemId
-      const urlParts = url.split('/').filter(p => p);
-      // Expected: ['', 'api', 'claims', {eventId}, 'items', {itemId}]
-      if (urlParts.length >= 5) {
+      // GET /api/claims/:eventId/items/:itemId - Must check before /:eventId route
+      if (urlParts.length >= 5 && urlParts[3] === 'items') {
         const eventId = decodeURIComponent(urlParts[2]);
         const itemId = decodeURIComponent(urlParts[4]);
         const claims = await getClaimsForEvent(eventId);
@@ -121,8 +114,7 @@ export default async function handler(req, res) {
         return res.json({ claimedBy: claim?.guestName || null });
       }
 
-      // GET /api/claims/:eventId/guests/:guestName
-      // Expected: ['', 'api', 'claims', {eventId}, 'guests', {guestName}]
+      // GET /api/claims/:eventId/guests/:guestName - Must check before /:eventId route
       if (urlParts.length >= 5 && urlParts[3] === 'guests') {
         const eventId = decodeURIComponent(urlParts[2]);
         const guestName = decodeURIComponent(urlParts[4]);
@@ -130,10 +122,17 @@ export default async function handler(req, res) {
         const guestClaims = claims.filter(c => c.eventId === eventId && c.guestName === guestName);
         return res.json(guestClaims);
       }
+
+      // GET /api/claims/:eventId
+      if (urlParts.length >= 3 && urlParts[0] === 'api' && urlParts[1] === 'claims') {
+        const eventId = decodeURIComponent(urlParts[2]);
+        const claims = await getClaimsForEvent(eventId);
+        return res.json(claims);
+      }
     }
 
     if (method === 'POST') {
-      // POST /api/claims
+      // POST /api/claims - Must be root route
       if (isRootClaimsRoute) {
         const { eventId, itemId, guestName } = req.body;
 
@@ -182,10 +181,7 @@ export default async function handler(req, res) {
       }
 
       // DELETE /api/claims/:eventId/items/:itemId
-      // Parse URL: /api/claims/{eventId}/items/{itemId}
-      const urlParts = url.split('/').filter(p => p);
-      // Expected: ['', 'api', 'claims', {eventId}, 'items', {itemId}
-      if (urlParts.length >= 5) {
+      if (urlParts.length >= 5 && urlParts[3] === 'items') {
         const eventId = decodeURIComponent(urlParts[2]);
         const itemId = decodeURIComponent(urlParts[4]);
 
