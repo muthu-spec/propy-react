@@ -60,12 +60,14 @@ export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '3600');
 
   // Debug logging
-  console.log('Request:', { method: req.method, url: req.url });
+  console.log('Request:', { method: req.method, url: req.url, headers: req.headers });
 
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS preflight');
     res.status(200).end();
     return;
   }
