@@ -62,6 +62,9 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  // Debug logging
+  console.log('Request:', { method: req.method, url: req.url });
+
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -108,20 +111,21 @@ export default async function handler(req, res) {
       }
 
       // GET /api/claims/:eventId/items/:itemId
-      const itemMatch = url.match(/^\/api\/claims\/([^\/]+)\/items\/([^\/]+)$/);
-      if (itemMatch) {
-        const eventId = decodeURIComponent(itemMatch[1]);
-        const itemId = decodeURIComponent(itemMatch[2]);
+      const urlParts = url.split('/').filter(p => p);
+      // Expected: ['', 'api', 'claims', {eventId}, 'items', {itemId}]
+      if (urlParts.length >= 5) {
+        const eventId = decodeURIComponent(urlParts[2]);
+        const itemId = decodeURIComponent(urlParts[4]);
         const claims = await getClaimsForEvent(eventId);
         const claim = claims.find(c => c.eventId === eventId && c.itemId === itemId);
         return res.json({ claimedBy: claim?.guestName || null });
       }
 
       // GET /api/claims/:eventId/guests/:guestName
-      const guestMatch = url.match(/^\/api\/claims\/([^\/]+)\/guests\/([^\/]+)$/);
-      if (guestMatch) {
-        const eventId = decodeURIComponent(guestMatch[1]);
-        const guestName = decodeURIComponent(guestMatch[2]);
+      // Expected: ['', 'api', 'claims', {eventId}, 'guests', {guestName}]
+      if (urlParts.length >= 5 && urlParts[3] === 'guests') {
+        const eventId = decodeURIComponent(urlParts[2]);
+        const guestName = decodeURIComponent(urlParts[4]);
         const claims = await getClaimsForEvent(eventId);
         const guestClaims = claims.filter(c => c.eventId === eventId && c.guestName === guestName);
         return res.json(guestClaims);
