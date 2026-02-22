@@ -239,7 +239,7 @@ export default async function handler(req, res) {
         return res.json({ success: true });
       }
     }
-  } catch (error) {
+   catch (error) {
     console.error('Error:', error);
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
