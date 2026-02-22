@@ -178,10 +178,12 @@ export default async function handler(req, res) {
       }
 
       // DELETE /api/claims/:eventId/items/:itemId
-      const itemMatch = url.match(/^\/api\/claims\/([^\/]+)\/items\/([^\/]+)$/);
-      if (itemMatch) {
-        const eventId = decodeURIComponent(itemMatch[1]);
-        const itemId = decodeURIComponent(itemMatch[2]);
+      // Parse URL: /api/claims/{eventId}/items/{itemId}
+      const urlParts = url.split('/').filter(p => p);
+      // Expected: ['', 'api', 'claims', {eventId}, 'items', {itemId}
+      if (urlParts.length >= 5) {
+        const eventId = decodeURIComponent(urlParts[2]);
+        const itemId = decodeURIComponent(urlParts[4]);
 
         const currentClaims = await getClaimsForEvent(eventId);
         const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
