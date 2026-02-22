@@ -171,6 +171,7 @@ export default async function handler(req, res) {
     }
 
     if (method === 'DELETE') {
+      console.log('del req reached')
       // DELETE /api/claims - Clear all claims for an event
       if (isRootClaimsRoute) {
         const { eventId } = req.body;
