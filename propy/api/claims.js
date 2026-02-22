@@ -184,8 +184,49 @@ export default async function handler(req, res) {
 
       // DELETE /api/claims/:eventId/items/:itemId
       if (urlParts.length >= 5 && urlParts[3] === 'items') {
-        const eventId = decodeURIComponent(urlParts[2]);
-        const itemId = decodeURIComponent(urlParts[4]);
+        // Support for RESTful path: /api/claims/{eventId}/items/{itemId}
+        const urlParts = url.split('/');
+        if (urlParts.length >= 4 && urlParts[0] === 'api' && urlParts[1] === 'claims' && urlParts[3] === 'items') {
+          const eventId = decodeURIComponent(urlParts[1]);
+          const itemId = decodeURIComponent(urlParts[3]);
+        }
+
+        const currentClaims = await getClaimsForEvent(eventId);
+        const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
+        if (claimIndex === -1) {
+          return res.status(404).json({ error: 'Claim not found' });
+        }
+
+        currentClaims.splice(claimIndex, 1);
+        await saveClaimsForEvent(eventId, currentClaims);
+        return res.json({ success: true });
+      }
+
+      // Fallback for query parameter support (if no path parts match)
+      if (urlParts.length === 5 && urlParts[0] === 'api' && urlParts[1] === 'claims') {
+        // Legacy support: try parsing as query parameters
+        const queryStr = url.split('?')[1] || '';
+        const queryParts = queryStr.split('&');
+        let eventId = null;
+        let itemId = null;
+        for (const part of queryParts) {
+          if (part === 'eventId') eventId = part;
+          else if (part === 'itemId') itemId = part;
+        }
+        if (!eventId || !itemId) {
+          return res.status(400).json({ error: 'Event ID and Item ID required for query parameter support' });
+        }
+
+        const currentClaims = await getClaimsForEvent(eventId);
+        const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
+        if (claimIndex === -1) {
+          return res.status(404).json({ error: 'Claim not found' });
+        }
+
+        currentClaims.splice(claimIndex, 1);
+        await saveClaimsForEvent(eventId, currentClaims);
+        return res.json({ success: true });
+      }
 
         const currentClaims = await getClaimsForEvent(eventId);
         const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);

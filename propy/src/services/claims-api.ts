@@ -68,6 +68,9 @@ const claimsApi = {
   async removeClaim(eventId: string, itemId: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/claims/${eventId}/items/${itemId}`, {
       method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
     });
 
     if (!response.ok) {
