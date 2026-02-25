@@ -65,7 +65,7 @@ const claimsApi = {
   },
 
   // Remove a claim
-  async removeClaim(eventId: string, itemId: string): Promise<void> {
+  async removeClaim(eventId: string, itemId: string): Promise<{ success: boolean }> {
     const response = await fetch(`${API_BASE_URL}/claims/${eventId}/items/${itemId}`, {
       method: 'DELETE',
       headers: {
@@ -76,6 +76,8 @@ const claimsApi = {
     if (!response.ok) {
       throw new Error('Failed to remove claim');
     }
+
+    return await response.json();
   },
 
   // Clear all claims (for testing)

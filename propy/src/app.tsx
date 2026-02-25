@@ -41,7 +41,7 @@ const getMockEventData = (eventId: string) => {
     location: "Miller's Backyard",
     drop_time: dropTime,
     menu: [
-      { id: "1", label: "Grilled Burgers" },
+      { id: "1", label: "Grilled Burgers", claimedBy: "Muthu" },
       { id: "2", label: "Potato Salad" },
       { id: "3", label: "Corn on the Cob" },
       { id: "4", label: "Watermelon" },
