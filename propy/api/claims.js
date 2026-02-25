@@ -83,6 +83,8 @@ export default async function handler(req, res) {
 
   try {
     if (method === 'GET') {
+      console.log('GET request - url:', url, 'urlParts:', urlParts, 'isRootClaimsRoute:', isRootClaimsRoute);
+
       // GET /api/claims - List all event files
       if (isRootClaimsRoute) {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -120,16 +122,23 @@ export default async function handler(req, res) {
       if (urlParts.length >= 5 && urlParts[3] === 'guests') {
         const eventId = decodeURIComponent(urlParts[2]);
         const guestName = decodeURIComponent(urlParts[4]);
+        console.log('GET guest claims:', { eventId, guestName, urlParts });
         const claims = await getClaimsForEvent(eventId);
         const guestClaims = claims.filter(c => c.eventId === eventId && c.guestName === guestName);
+        console.log('Guest claims found:', guestClaims);
         return res.json(guestClaims);
       }
 
       // GET /api/claims/:eventId
-      if (urlParts.length >= 3 && urlParts[0] === 'api' && urlParts[1] === 'claims') {
-        const eventId = decodeURIComponent(urlParts[2]);
-        const claims = await getClaimsForEvent(eventId);
-        return res.json(claims);
+      if (urlParts.length >= 3 && urlParts[0] === 'api' && urlParts[1] === 'claims' && urlParts[2]) {
+        // Only match if not already matched by items or guests routes
+        // Check that there's no 'items' or 'guests' segment at index 3
+        if (!urlParts[3] || (urlParts[3] !== 'items' && urlParts[3] !== 'guests')) {
+          const eventId = decodeURIComponent(urlParts[2]);
+          console.log('GET claims for event:', eventId);
+          const claims = await getClaimsForEvent(eventId);
+          return res.json(claims);
+        }
       }
     }
 
@@ -205,5 +214,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 
+  console.log('No route matched:', { method, url, urlParts });
   return res.status(404).json({ error: 'Not found' });
 }
