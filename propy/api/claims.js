@@ -180,35 +180,37 @@ export default async function handler(req, res) {
       }
     }
 
-    if (method === 'DELETE') {
-      console.log('DELETE request - url:', url, 'urlParts:', urlParts);
+    if (method === 'PUT') {
+      console.log('PUT request - url:', url, 'urlParts:', urlParts);
 
-      // DELETE /api/claims - Clear all claims for an event
+      // PUT /api/claims - Modify claims (remove or update)
       if (isRootClaimsRoute) {
-        const { eventId } = req.body;
-        if (eventId) {
+        const { eventId, itemId, action } = req.body;
+
+        if (!eventId) {
+          return res.status(400).json({ error: 'Event ID required' });
+        }
+
+        const currentClaims = await getClaimsForEvent(eventId);
+
+        // Clear all claims for an event
+        if (action === 'clear') {
           await saveClaimsForEvent(eventId, []);
           return res.json({ success: true });
         }
-        // If no eventId, return error
-        return res.status(400).json({ error: 'Event ID required for clearing claims' });
-      }
 
-      // DELETE /api/claims/:eventId/items/:itemId
-      if (urlParts.length >= 5 && urlParts[3] === 'items') {
-        const eventId = decodeURIComponent(urlParts[2]);
-        const itemId = decodeURIComponent(urlParts[4]);
-        console.log('DELETE claim:', { eventId, itemId });
-
-        const currentClaims = await getClaimsForEvent(eventId);
-        const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
-        if (claimIndex === -1) {
-          return res.status(404).json({ error: 'Claim not found' });
+        // Remove a specific claim
+        if (action === 'remove' && itemId) {
+          const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
+          if (claimIndex === -1) {
+            return res.status(404).json({ error: 'Claim not found' });
+          }
+          currentClaims.splice(claimIndex, 1);
+          await saveClaimsForEvent(eventId, currentClaims);
+          return res.json({ success: true });
         }
 
-        currentClaims.splice(claimIndex, 1);
-        await saveClaimsForEvent(eventId, currentClaims);
-        return res.json({ success: true });
+        return res.status(400).json({ error: 'Invalid action. Use "clear" or "remove"' });
       }
     }
   } catch (error) {
