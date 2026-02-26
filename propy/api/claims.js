@@ -2,21 +2,23 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-claims-{eventId}.json
 
+import { put, del, list } from '@vercel/blob';
+
 // Helper to get claims for a specific event
 async function getClaimsForEvent(eventId) {
   try {
     // Check if running in Vercel environment
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const { list } = await import('@vercel/blob');
       const token = process.env.BLOB_READ_WRITE_TOKEN;
-
       const pathname = `potluck-claims-${eventId}.json`;
 
-      // Try to get the event's blob
-      const response = await fetch(`https://vercel-blob.public.blob.vercel-storage.com/${pathname}`);
-      if (response.ok) {
-        const data = await response.text();
-        return data ? JSON.parse(data) : [];
+      // Try to get the event's blob using SDK
+      const { get } = await import('@vercel/blob');
+      const blob = await get(pathname, { access: 'public', token });
+
+      if (blob) {
+        const text = await blob.stream.text();
+        return text ? JSON.parse(text) : [];
       }
     }
   } catch (error) {
@@ -33,17 +35,17 @@ async function getClaimsForEvent(eventId) {
 async function saveClaimsForEvent(eventId, claims) {
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const { put, del} = await import('@vercel/blob');
       const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-      // Fixed filename per event - overwrites existing file
+      // Fixed filename per event - overwrites if exists
       const pathname = `potluck-claims-${eventId}.json`;
 
-      // Upload claims as a new blob (overwrites if exists)
+      // Upload claims using SDK put method
       await put(pathname, JSON.stringify(claims), {
         token,
         contentType: 'application/json',
         access: 'public',
+        allowOverwrite: true, // Allow overwriting the same file
       });
     }
   } catch (error) {
@@ -88,7 +90,6 @@ export default async function handler(req, res) {
       // GET /api/claims - List all event files
       if (isRootClaimsRoute) {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
-          const { list } = await import('@vercel/blob');
           const token = process.env.BLOB_READ_WRITE_TOKEN;
           const { blobs } = await list({
             prefix: 'potluck-claims-',
@@ -180,7 +181,8 @@ export default async function handler(req, res) {
     }
 
     if (method === 'DELETE') {
-      console.log('del req reached')
+      console.log('DELETE request - url:', url, 'urlParts:', urlParts);
+
       // DELETE /api/claims - Clear all claims for an event
       if (isRootClaimsRoute) {
         const { eventId } = req.body;
@@ -196,6 +198,7 @@ export default async function handler(req, res) {
       if (urlParts.length >= 5 && urlParts[3] === 'items') {
         const eventId = decodeURIComponent(urlParts[2]);
         const itemId = decodeURIComponent(urlParts[4]);
+        console.log('DELETE claim:', { eventId, itemId });
 
         const currentClaims = await getClaimsForEvent(eventId);
         const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
@@ -207,7 +210,6 @@ export default async function handler(req, res) {
         await saveClaimsForEvent(eventId, currentClaims);
         return res.json({ success: true });
       }
-
     }
   } catch (error) {
     console.error('Error:', error);
