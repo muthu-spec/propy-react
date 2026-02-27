@@ -96,7 +96,7 @@ export default async function handler(req, res) {
             token,
           });
           // Return list of event files with metadata
-          return res.json(blobs.blobs.map(b => ({
+          return res.json(blobs.map(b => ({
             eventId: b.pathname.replace('potluck-claims-', '').replace('.json', ''),
             uploadedAt: b.uploadedAt,
             size: b.size,
