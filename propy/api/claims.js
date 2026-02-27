@@ -2,21 +2,23 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-claims-{eventId}.json
 
+import { put, del, list } from '@vercel/blob';
+
 // Helper to get claims for a specific event
 async function getClaimsForEvent(eventId) {
   try {
     // Check if running in Vercel environment
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const { list } = await import('@vercel/blob');
       const token = process.env.BLOB_READ_WRITE_TOKEN;
-
       const pathname = `potluck-claims-${eventId}.json`;
 
-      // Try to get the event's blob
-      const response = await fetch(`https://vercel-blob.public.blob.vercel-storage.com/${pathname}`);
-      if (response.ok) {
-        const data = await response.text();
-        return data ? JSON.parse(data) : [];
+      // Try to get the event's blob using SDK
+      const { get } = await import('@vercel/blob');
+      const blob = await get(pathname, { access: 'public', token });
+
+      if (blob) {
+        const text = await blob.stream.text();
+        return text ? JSON.parse(text) : [];
       }
     }
   } catch (error) {
@@ -33,17 +35,17 @@ async function getClaimsForEvent(eventId) {
 async function saveClaimsForEvent(eventId, claims) {
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const { put } = await import('@vercel/blob');
       const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-      // Fixed filename per event - overwrites existing file
+      // Fixed filename per event - overwrites if exists
       const pathname = `potluck-claims-${eventId}.json`;
 
-      // Upload claims as a new blob (overwrites if exists)
+      // Upload claims using SDK put method
       await put(pathname, JSON.stringify(claims), {
         token,
         contentType: 'application/json',
         access: 'public',
+        allowOverwrite: true, // Allow overwriting the same file
       });
     }
   } catch (error) {
@@ -83,10 +85,11 @@ export default async function handler(req, res) {
 
   try {
     if (method === 'GET') {
+      console.log('GET request - url:', url, 'urlParts:', urlParts, 'isRootClaimsRoute:', isRootClaimsRoute);
+
       // GET /api/claims - List all event files
       if (isRootClaimsRoute) {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
-          const { list } = await import('@vercel/blob');
           const token = process.env.BLOB_READ_WRITE_TOKEN;
           const { blobs } = await list({
             prefix: 'potluck-claims-',
@@ -120,16 +123,23 @@ export default async function handler(req, res) {
       if (urlParts.length >= 5 && urlParts[3] === 'guests') {
         const eventId = decodeURIComponent(urlParts[2]);
         const guestName = decodeURIComponent(urlParts[4]);
+        console.log('GET guest claims:', { eventId, guestName, urlParts });
         const claims = await getClaimsForEvent(eventId);
         const guestClaims = claims.filter(c => c.eventId === eventId && c.guestName === guestName);
+        console.log('Guest claims found:', guestClaims);
         return res.json(guestClaims);
       }
 
       // GET /api/claims/:eventId
-      if (urlParts.length >= 3 && urlParts[0] === 'api' && urlParts[1] === 'claims') {
-        const eventId = decodeURIComponent(urlParts[2]);
-        const claims = await getClaimsForEvent(eventId);
-        return res.json(claims);
+      if (urlParts.length >= 3 && urlParts[0] === 'api' && urlParts[1] === 'claims' && urlParts[2]) {
+        // Only match if not already matched by items or guests routes
+        // Check that there's no 'items' or 'guests' segment at index 3
+        if (!urlParts[3] || (urlParts[3] !== 'items' && urlParts[3] !== 'guests')) {
+          const eventId = decodeURIComponent(urlParts[2]);
+          console.log('GET claims for event:', eventId);
+          const claims = await getClaimsForEvent(eventId);
+          return res.json(claims);
+        }
       }
     }
 
@@ -170,79 +180,44 @@ export default async function handler(req, res) {
       }
     }
 
-    if (method === 'DELETE') {
-      // DELETE /api/claims - Clear all claims for an event
+    if (method === 'PUT') {
+      console.log('PUT request - url:', url, 'urlParts:', urlParts);
+
+      // PUT /api/claims - Modify claims (remove or update)
       if (isRootClaimsRoute) {
-        const { eventId } = req.body;
-        if (eventId) {
+        const { eventId, itemId, action } = req.body;
+
+        if (!eventId) {
+          return res.status(400).json({ error: 'Event ID required' });
+        }
+
+        const currentClaims = await getClaimsForEvent(eventId);
+
+        // Clear all claims for an event
+        if (action === 'clear') {
           await saveClaimsForEvent(eventId, []);
           return res.json({ success: true });
         }
-        // If no eventId, return error
-        return res.status(400).json({ error: 'Event ID required for clearing claims' });
-      }
 
-      // DELETE /api/claims/:eventId/items/:itemId
-      if (urlParts.length >= 5 && urlParts[3] === 'items') {
-        // Support for RESTful path: /api/claims/{eventId}/items/{itemId}
-        const urlParts = url.split('/');
-        if (urlParts.length >= 4 && urlParts[0] === 'api' && urlParts[1] === 'claims' && urlParts[3] === 'items') {
-          const eventId = decodeURIComponent(urlParts[1]);
-          const itemId = decodeURIComponent(urlParts[3]);
+        // Remove a specific claim
+        if (action === 'remove' && itemId) {
+          const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
+          if (claimIndex === -1) {
+            return res.status(404).json({ error: 'Claim not found' });
+          }
+          currentClaims.splice(claimIndex, 1);
+          await saveClaimsForEvent(eventId, currentClaims);
+          return res.json({ success: true });
         }
 
-        const currentClaims = await getClaimsForEvent(eventId);
-        const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
-        if (claimIndex === -1) {
-          return res.status(404).json({ error: 'Claim not found' });
-        }
-
-        currentClaims.splice(claimIndex, 1);
-        await saveClaimsForEvent(eventId, currentClaims);
-        return res.json({ success: true });
-      }
-
-      // Fallback for query parameter support (if no path parts match)
-      if (urlParts.length === 5 && urlParts[0] === 'api' && urlParts[1] === 'claims') {
-        // Legacy support: try parsing as query parameters
-        const queryStr = url.split('?')[1] || '';
-        const queryParts = queryStr.split('&');
-        let eventId = null;
-        let itemId = null;
-        for (const part of queryParts) {
-          if (part === 'eventId') eventId = part;
-          else if (part === 'itemId') itemId = part;
-        }
-        if (!eventId || !itemId) {
-          return res.status(400).json({ error: 'Event ID and Item ID required for query parameter support' });
-        }
-
-        const currentClaims = await getClaimsForEvent(eventId);
-        const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
-        if (claimIndex === -1) {
-          return res.status(404).json({ error: 'Claim not found' });
-        }
-
-        currentClaims.splice(claimIndex, 1);
-        await saveClaimsForEvent(eventId, currentClaims);
-        return res.json({ success: true });
-      }
-
-        const currentClaims = await getClaimsForEvent(eventId);
-        const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
-        if (claimIndex === -1) {
-          return res.status(404).json({ error: 'Claim not found' });
-        }
-
-        currentClaims.splice(claimIndex, 1);
-        await saveClaimsForEvent(eventId, currentClaims);
-        return res.json({ success: true });
+        return res.status(400).json({ error: 'Invalid action. Use "clear" or "remove"' });
       }
     }
-   catch (error) {
+  } catch (error) {
     console.error('Error:', error);
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 
+  console.log('No route matched:', { method, url, urlParts });
   return res.status(404).json({ error: 'Not found' });
 }

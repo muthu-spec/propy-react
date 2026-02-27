@@ -50,11 +50,12 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
   // Local state for menu (initialized from API)
   const [menuState, setMenuState] = useState<MenuItem[]>(eventData.menu);
 
-  // Load claims from API on mount
+  // Load event claims and menu state on mount
   useEffect(() => {
     const loadClaims = async () => {
       try {
         const eventClaims = await claimsApi.getClaimsForEvent(eventId);
+        console.log('Loaded event claims:', eventClaims);
 
         // Build menu with claim status from API
         setMenuState(eventData.menu.map(item => {
@@ -64,29 +65,33 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
             claimedBy: claim?.guestName
           };
         }));
-
-        // Load this guest's claimed item if registered
-        if (guestName) {
-          const dbClaimedItemId = await claimsApi.getGuestClaimedItemId(eventId, guestName);
-          setClaimedItemId(dbClaimedItemId);
-        }
       } catch (error) {
-        console.error('Failed to load claims:', error);
+        console.error('Failed to load event claims:', error);
       }
     };
 
     loadClaims();
-  }, [eventId, eventData.menu, guestName]);
+  }, [eventId, eventData.menu]);
 
-  // Sync this guest's claimedItemId when they RSVP (guestName changes)
+  // Load this guest's claimed item from API
   useEffect(() => {
-    if (guestName) {
-      const syncClaimedItemId = async () => {
+    const loadGuestClaim = async () => {
+      if (!guestName) {
+        setClaimedItemId(null);
+        return;
+      }
+
+      try {
         const dbClaimedItemId = await claimsApi.getGuestClaimedItemId(eventId, guestName);
+        console.log('Guest claimed item loaded:', { guestName, claimedItemId: dbClaimedItemId });
         setClaimedItemId(dbClaimedItemId);
-      };
-      syncClaimedItemId();
-    }
+      } catch (error) {
+        console.error('Failed to load guest claim:', error);
+        setClaimedItemId(null);
+      }
+    };
+
+    loadGuestClaim();
   }, [guestName, eventId]);
 
   // 2. Countdown State
@@ -112,12 +117,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
           };
         }));
 
-        // Sync this guest's claimedItemId (functional update to prevent cascading renders)
+        // Sync this guest's claimedItemId
         if (guestName) {
           const dbClaimedItemId = await claimsApi.getGuestClaimedItemId(eventId, guestName);
-          setClaimedItemId(prev => {
-            return dbClaimedItemId === prev ? prev : dbClaimedItemId;
-          });
+          setClaimedItemId(dbClaimedItemId);
         }
       } catch (error) {
         console.error('Failed to poll claims:', error);
@@ -162,9 +165,14 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
   const handleClaim = async (itemId: string) => {
     if (!isMenuLive) return;
 
+    console.log('handleClaim called:', { itemId, guestName, claimedItemId, isMenuLive });
+
     // Find item in current menu state (to get latest claimedBy info)
     const currentItem = menuState.find(i => i.id === itemId);
-    if (!currentItem) return;
+    if (!currentItem) {
+      console.error('Item not found:', itemId);
+      return;
+    }
 
     // Check if already claimed by anyone (not just this guest)
     if (currentItem.claimedBy) {
@@ -180,6 +188,7 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
               ? { ...i, claimedBy: undefined }
               : i
           ));
+          console.log('Item unclaimed:', itemId);
         } catch (error) {
           alert('Failed to unclaim item. Please try again.');
           console.error('Unclaim error:', error);
@@ -213,6 +222,7 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
           ? { ...i, claimedBy: guestName }
           : i
       ));
+      console.log('Item claimed:', itemId);
     } catch (error) {
       // Reset claimedItemId if API call failed
       setClaimedItemId(null);

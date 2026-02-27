@@ -65,23 +65,37 @@ const claimsApi = {
   },
 
   // Remove a claim
-  async removeClaim(eventId: string, itemId: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/claims/${eventId}/items/${itemId}`, {
-      method: 'DELETE',
+  async removeClaim(eventId: string, itemId: string): Promise<{ success: boolean }> {
+    const response = await fetch(`${API_BASE_URL}/claims`, {
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
+      body: JSON.stringify({
+        eventId,
+        itemId,
+        action: 'remove'
+      })
     });
 
     if (!response.ok) {
       throw new Error('Failed to remove claim');
     }
+
+    return await response.json();
   },
 
   // Clear all claims (for testing)
-  async clearAllClaims(): Promise<void> {
+  async clearAllClaims(eventId?: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/claims`, {
-      method: 'DELETE',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        eventId,
+        action: 'clear'
+      })
     });
 
     if (!response.ok) {

@@ -271,3 +271,108 @@
     flex-direction: column;
   }
 }
+
+/* Menu items styling */
+.menu-input-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.menu-input-row input {
+  flex: 1;
+}
+
+.add-menu-button {
+  background-color: #2196f3;
+  color: white;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.add-menu-button:hover {
+  background-color: #1976d2;
+}
+
+.menu-items-list {
+  background-color: #333;
+  border-radius: 4px;
+  padding: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.menu-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid #444;
+}
+
+.menu-item-row:last-child {
+  border-bottom: none;
+}
+
+.menu-item-row span {
+  color: #ffffff;
+  flex: 1;
+}
+
+.remove-menu-button {
+  background-color: #d32f2f;
+  color: white;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.remove-menu-button:hover {
+  background-color: #b71c1c;
+}
+
+/* Loading and error states */
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  text-align: center;
+  padding: 2rem;
+}
+
+.loading-container p,
+.error-container p {
+  color: #ffffff;
+  font-size: 1.25rem;
+}
+
+.error-container h2 {
+  color: #d32f2f;
+  margin-bottom: 1rem;
+}
+
+.error-container a {
+  color: #64b5f6;
+  text-decoration: none;
+  margin-top: 1rem;
+}
+
+.error-container a:hover {
+  text-decoration: underline;
+}
