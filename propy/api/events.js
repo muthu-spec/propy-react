@@ -2,7 +2,7 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-event-{eventId}.json
 
-import { put, get, list } from '@vercel/blob';
+import { put, get, list, del } from '@vercel/blob';
 
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
             prefix: 'potluck-event-',
             token,
           });
-          return res.json(blobs.blobs.map(b => ({
+          return res.json(blobs.map(b => ({
             eventId: b.pathname.replace('potluck-event-', '').replace('.json', ''),
             uploadedAt: b.uploadedAt,
             size: b.size,
@@ -157,9 +157,14 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'Event ID required' });
         }
 
-        // Note: Vercel Blob doesn't have a simple delete for files, so we save an empty object
-        // In production, you might want to use the del() function instead
-        await saveEventData(eventId, null);
+        // Use del function to delete the blob file
+        const token = process.env.BLOB_READ_WRITE_TOKEN;
+        const pathname = `potluck-event-${eventId}.json`;
+
+        if (token) {
+          await del(pathname, { token });
+        }
+
         return res.json({ success: true });
       }
     }
