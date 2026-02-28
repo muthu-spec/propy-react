@@ -2,7 +2,7 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-event-{eventId}.json
 
-import { put, get, list, del } from '@vercel/blob';
+import { put, list, del } from '@vercel/blob';
 
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
@@ -11,6 +11,8 @@ async function getEventData(eventId) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
       const pathname = `potluck-event-${eventId}.json`;
 
+      // Use dynamic import for get (same pattern as claims.js)
+      const { get } = await import('@vercel/blob');
       const blob = await get(pathname, { access: 'public', token });
 
       if (blob) {

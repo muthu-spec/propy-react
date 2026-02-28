@@ -26,7 +26,7 @@ const eventsApi = {
   async getAllEvents(): Promise<{ eventId: string; uploadedAt: string; size: number }[]> {
     const response = await fetch(`${API_BASE_URL}/events`);
     if (!response.ok) {
-      throw new Error('Failed to fetch events');
+      throw new Error(`Failed to fetch events (${response.status}: ${response.statusText})`);
     }
     return response.json();
   },
@@ -50,7 +50,10 @@ const eventsApi = {
 
   // Create a new event
   async createEvent(eventData: EventData): Promise<EventData> {
-    const response = await fetch(`${API_BASE_URL}/events`, {
+    const url = `${API_BASE_URL}/events`;
+    console.log('Creating event:', { url, eventData });
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,12 +61,28 @@ const eventsApi = {
       body: JSON.stringify(eventData),
     });
 
+    console.log('Response status:', response.status, response.statusText);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create event');
+      // Try to parse error as JSON, fallback to text
+      let errorMessage = 'Failed to create event';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+        console.error('Error response JSON:', errorData);
+      } catch {
+        // Response is not JSON, get text for debugging
+        const errorText = await response.text();
+        console.error('Non-JSON error response:', errorText);
+        errorMessage = `Failed to create event (${response.status}: ${response.statusText})`;
+      }
+      throw new Error(errorMessage);
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log('Event created successfully:', result);
+    return result;
   },
 
   // Update an existing event
@@ -80,8 +99,18 @@ const eventsApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to update event');
+      // Try to parse error as JSON, fallback to text
+      let errorMessage = 'Failed to update event';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        // Response is not JSON, get text for debugging
+        const errorText = await response.text();
+        console.error('Non-JSON error response:', errorText);
+        errorMessage = `Failed to update event (${response.status}: ${response.statusText})`;
+      }
+      throw new Error(errorMessage);
     }
 
     return response.json();
@@ -98,7 +127,7 @@ const eventsApi = {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to delete event');
+      throw new Error(`Failed to delete event (${response.status}: ${response.statusText})`);
     }
 
     return response.json();
