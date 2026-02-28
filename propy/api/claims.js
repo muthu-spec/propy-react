@@ -103,6 +103,9 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '3600');
 
+  // Disable caching for real-time claims data (critical to prevent duplicate claims)
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+
   // Debug logging
   console.log('Claims API Request:', { method: req.method, url: req.url });
 
