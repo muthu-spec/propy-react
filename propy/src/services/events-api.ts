@@ -65,15 +65,18 @@ const eventsApi = {
     console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
-      // Try to parse error as JSON, fallback to text
+      // Clone response to allow multiple reads
       let errorMessage = 'Failed to create event';
       try {
-        const errorData = await response.json();
+        // Clone the response first
+        const clonedResponse = response.clone();
+        const errorData = await clonedResponse.json();
         errorMessage = errorData.error || errorMessage;
         console.error('Error response JSON:', errorData);
       } catch {
-        // Response is not JSON, get text for debugging
-        const errorText = await response.text();
+        // Clone the response first
+        const clonedResponse = response.clone();
+        const errorText = await clonedResponse.text();
         console.error('Non-JSON error response:', errorText);
         errorMessage = `Failed to create event (${response.status}: ${response.statusText})`;
       }
@@ -99,14 +102,15 @@ const eventsApi = {
     });
 
     if (!response.ok) {
-      // Try to parse error as JSON, fallback to text
+      // Clone response to allow multiple reads
       let errorMessage = 'Failed to update event';
       try {
-        const errorData = await response.json();
+        const clonedResponse = response.clone();
+        const errorData = await clonedResponse.json();
         errorMessage = errorData.error || errorMessage;
       } catch {
-        // Response is not JSON, get text for debugging
-        const errorText = await response.text();
+        const clonedResponse = response.clone();
+        const errorText = await clonedResponse.text();
         console.error('Non-JSON error response:', errorText);
         errorMessage = `Failed to update event (${response.status}: ${response.statusText})`;
       }
