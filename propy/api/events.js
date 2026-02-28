@@ -7,9 +7,12 @@ import { put, list, del } from '@vercel/blob';
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
   try {
+    console.log('getEventData called with eventId:', eventId);
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
       const prefix = `potluck-event-${eventId}-`;
+
+      console.log('Searching for blobs with prefix:', prefix);
 
       // List all blobs with the prefix (Vercel appends GUID to filename)
       const { list, get } = await import('@vercel/blob');
@@ -18,19 +21,28 @@ async function getEventData(eventId) {
         token,
       });
 
+      console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
+
       // Get the first matching blob (most recent)
       if (blobs.length > 0) {
         const blob = await get(blobs[0].pathname, { access: 'public', token });
 
+        console.log('Got blob:', blob.pathname);
+
         if (blob) {
           const text = await blob.stream.text();
-          return text ? JSON.parse(text) : null;
+          const data = text ? JSON.parse(text) : null;
+          console.log('Parsed event data:', data);
+          return data;
         }
       }
+    } else {
+      console.log('BLOB_READ_WRITE_TOKEN not set');
     }
   } catch (error) {
     console.error('Failed to get event from Blob:', error);
   }
+  console.log('Returning null from getEventData');
   return null;
 }
 
@@ -86,7 +98,11 @@ export default async function handler(req, res) {
   const url = req.url;
   const urlParts = url.split('/').filter(p => p.trim());
 
+  console.log('Parsed URL parts:', urlParts);
+
   const isRootEventsRoute = url === '/api/events' || url === '/api/events/';
+
+  console.log('isRootEventsRoute:', isRootEventsRoute);
 
   try {
     if (method === 'GET') {
