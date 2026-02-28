@@ -2,6 +2,8 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-event-{eventId}.json
 
+import { get, put, list, del } from '@vercel/blob';
+
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
   try {
@@ -13,7 +15,6 @@ async function getEventData(eventId) {
       console.log('Searching for blobs with prefix:', prefix);
 
       // List all blobs with the prefix (Vercel appends GUID to filename)
-      const { list, get } = await import('@vercel/blob');
       const { blobs } = await list({
         prefix,
         token,
@@ -52,7 +53,6 @@ async function saveEventData(eventId, eventData) {
       const prefix = `potluck-event-${eventId}-`;
 
       // List and delete existing files with the same prefix
-      const { list, del, put } = await import('@vercel/blob');
       const { blobs } = await list({
         prefix,
         token,
@@ -108,7 +108,6 @@ export default async function handler(req, res) {
       if (isRootEventsRoute) {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           const token = process.env.BLOB_READ_WRITE_TOKEN;
-          const { list } = await import('@vercel/blob');
           const { blobs } = await list({
             prefix: 'potluck-event-',
             token,
@@ -208,7 +207,6 @@ export default async function handler(req, res) {
         const prefix = `potluck-event-${eventId}-`;
 
         if (token) {
-          const { list, del } = await import('@vercel/blob');
           const { blobs } = await list({
             prefix,
             token,
