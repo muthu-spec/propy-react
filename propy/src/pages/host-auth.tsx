@@ -93,7 +93,7 @@ export const HostAuthSystem = () => {
       // Generate magic link
       const generatedLink = `${window.location.origin}/join/${newEventId}`;
       setMagicLink(generatedLink);
-      setStep('event-details');
+      // Note: step stays as 'dashboard', magic link is shown when magicLink is set
     } catch (error) {
       console.error('Failed to create event:', error);
       alert('Failed to create event. Please try again.');
