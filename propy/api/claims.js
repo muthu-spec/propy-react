@@ -2,16 +2,18 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-claims-{eventId}.json
 
-const { put, list } = require('@vercel/blob');
+import { put, del, list } from '@vercel/blob';
 
 // Helper to get claims for a specific event
 async function getClaimsForEvent(eventId) {
   try {
+    // Check if running in Vercel environment
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
       const pathname = `potluck-claims-${eventId}.json`;
 
-      const { get } = require('@vercel/blob');
+      // Try to get the event's blob using SDK
+      const { get } = await import('@vercel/blob');
       const blob = await get(pathname, { access: 'public', token });
 
       if (blob) {
@@ -56,7 +58,7 @@ async function saveClaimsForEvent(eventId, claims) {
   globalThis.inMemoryClaims[eventId] = claims;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -218,4 +220,4 @@ module.exports = async function handler(req, res) {
 
   console.log('No route matched:', { method, url, urlParts });
   return res.status(404).json({ error: 'Not found' });
-};
+}
