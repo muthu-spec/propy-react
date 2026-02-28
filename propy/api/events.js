@@ -6,85 +6,75 @@ const { put, get, list, del } = require('@vercel/blob');
 
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
-  try {
-    console.log('Getting event data for eventId:', eventId);
+  console.log('Getting event data for eventId:', eventId);
 
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-event-${eventId}-`;
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-event-${eventId}-`;
 
-      console.log('Searching for blobs with prefix:', prefix);
+    console.log('Searching for blobs with prefix:', prefix);
 
-      // List all blobs with the prefix (handles GUID suffix)
-      const { blobs } = await list({ prefix, token });
+    // List all blobs with the prefix (handles GUID suffix)
+    const { blobs } = await list({ prefix, token });
 
-      console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
+    console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
 
-      // Get first matching blob (most recent)
-      if (blobs.length > 0) {
-        const blob = await get(blobs[0].pathname, { access: 'public', token });
+    // Get first matching blob (most recent)
+    if (blobs.length > 0) {
+      const blob = await get(blobs[0].pathname, { access: 'public', token });
 
-        console.log('Got blob:', blob.pathname);
+      console.log('Got blob:', blob.pathname);
 
-        if (blob) {
-          const text = await blob.stream.text();
-          const data = text ? JSON.parse(text) : null;
-          console.log('Parsed event data:', data);
-          return data;
-        }
-      } else {
-        console.log('No blobs found for eventId:', eventId);
+      if (blob) {
+        const text = await blob.stream.text();
+        const data = text ? JSON.parse(text) : null;
+        console.log('Parsed event data:', data);
+        return data;
       }
     } else {
-      console.log('BLOB_READ_WRITE_TOKEN not set');
+      console.log('No blobs found for eventId:', eventId);
     }
-  } catch (error) {
-    console.error('Failed to get event from Blob:', error);
+  } else {
+    console.log('BLOB_READ_WRITE_TOKEN not set');
   }
-  console.log('Returning null from getEventData');
   return null;
 }
 
 // Helper to save event data for a specific event
 async function saveEventData(eventId, eventData) {
-  try {
-    console.log('Saving event data:', { eventId });
+  console.log('Saving event data:', { eventId });
 
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-event-${eventId}-`;
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-event-${eventId}-`;
 
-      console.log('Listing blobs with prefix:', prefix);
+    console.log('Listing blobs with prefix:', prefix);
 
-      // List and delete existing files with the same prefix
-      const { blobs } = await list({ prefix, token });
+    // List and delete existing files with the same prefix
+    const { blobs } = await list({ prefix, token });
 
-      console.log('Found existing blobs:', blobs.length);
+    console.log('Found existing blobs:', blobs.length);
 
-      // Delete all existing files for this event
-      for (const blob of blobs) {
-        console.log('Deleting blob:', blob.pathname);
-        await del(blob.pathname, { token });
-      }
-
-      // Create new filename with timestamp
-      const pathname = `${prefix}${Date.now()}.json`;
-
-      console.log('Saving event to:', pathname);
-
-      await put(pathname, JSON.stringify(eventData), {
-        token,
-        contentType: 'application/json',
-        access: 'public',
-      });
-
-      console.log('Event saved successfully');
-    } else {
-      console.log('BLOB_READ_WRITE_TOKEN not set');
+    // Delete all existing files for this event
+    for (const blob of blobs) {
+      console.log('Deleting blob:', blob.pathname);
+      await del(blob.pathname, { token });
     }
-  } catch (error) {
-    console.error('Failed to save event to Blob:', error);
-    throw error;
+
+    // Create new filename with timestamp
+    const pathname = `${prefix}${Date.now()}.json`;
+
+    console.log('Saving event to:', pathname);
+
+    await put(pathname, JSON.stringify(eventData), {
+      token,
+      contentType: 'application/json',
+      access: 'public',
+    });
+
+    console.log('Event saved successfully');
+  } else {
+    console.log('BLOB_READ_WRITE_TOKEN not set');
   }
 }
 
@@ -131,7 +121,7 @@ module.exports = async function handler(req, res) {
           // Handle GUID in filename: potluck-event-{eventId}-{guid}.json
           return res.json(blobs.map(b => {
             const filename = b.pathname.replace('potluck-event-', '').replace('.json', '');
-            // Extract eventId (part before the dash/GUID)
+            // Extract eventId (part before dash/GUID)
             const eventId = filename.split('-')[0];
             return {
               eventId,
@@ -175,7 +165,7 @@ module.exports = async function handler(req, res) {
           title,
           date,
           location,
-          drop_time: drop_time || new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(), // Default 3 hours from now
+          drop_time: drop_time || new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
           menu: menu || [],
           phone: phone || null,
           createdAt: new Date().toISOString(),

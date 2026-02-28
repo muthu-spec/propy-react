@@ -11,40 +11,36 @@ if (!globalThis.inMemoryClaims) {
 
 // Helper to get claims for a specific event
 async function getClaimsForEvent(eventId) {
-  try {
-    console.log('Getting claims for eventId:', eventId);
+  console.log('Getting claims for eventId:', eventId);
 
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-claims-${eventId}-`;
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-claims-${eventId}-`;
 
-      console.log('Searching for blobs with prefix:', prefix);
+    console.log('Searching for blobs with prefix:', prefix);
 
-      // List all blobs with the prefix (handles GUID suffix)
-      const { blobs } = await list({ prefix, token });
+    // List all blobs with the prefix (handles GUID suffix)
+    const { blobs } = await list({ prefix, token });
 
-      console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
+    console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
 
-      // Get first matching blob (most recent)
-      if (blobs.length > 0) {
-        const blob = await get(blobs[0].pathname, { access: 'public', token });
+    // Get first matching blob (most recent)
+    if (blobs.length > 0) {
+      const blob = await get(blobs[0].pathname, { access: 'public', token });
 
-        console.log('Got blob:', blob.pathname);
+      console.log('Got blob:', blob.pathname);
 
-        if (blob) {
-          const text = await blob.stream.text();
-          const data = text ? JSON.parse(text) : [];
-          console.log('Parsed claims data:', data);
-          return data;
-        }
-      } else {
-        console.log('No blobs found for eventId:', eventId);
+      if (blob) {
+        const text = await blob.stream.text();
+        const data = text ? JSON.parse(text) : [];
+        console.log('Parsed claims data:', data);
+        return data;
       }
     } else {
-      console.log('BLOB_READ_WRITE_TOKEN not set');
+      console.log('No blobs found for eventId:', eventId);
     }
-  } catch (error) {
-    console.error('Failed to get claims from Blob:', error);
+  } else {
+    console.log('BLOB_READ_WRITE_TOKEN not set');
   }
   // Fallback to in-memory (for local development)
   return globalThis.inMemoryClaims[eventId] || [];
@@ -52,45 +48,39 @@ async function getClaimsForEvent(eventId) {
 
 // Helper to save claims for a specific event
 async function saveClaimsForEvent(eventId, claims) {
-  try {
-    console.log('Saving claims for eventId:', eventId);
+  console.log('Saving claims for eventId:', eventId);
 
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-claims-${eventId}-`;
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-claims-${eventId}-`;
 
-      console.log('Listing blobs with prefix:', prefix);
+    console.log('Listing blobs with prefix:', prefix);
 
-      // List and delete existing files with the same prefix
-      const { blobs } = await list({ prefix, token });
+    // List and delete existing files with the same prefix
+    const { blobs } = await list({ prefix, token });
 
-      console.log('Found existing blobs:', blobs.length);
+    console.log('Found existing blobs:', blobs.length);
 
-      // Delete all existing files for this event
-      for (const blob of blobs) {
-        console.log('Deleting blob:', blob.pathname);
-        await del(blob.pathname, { token });
-      }
-
-      // Create new filename with timestamp
-      const pathname = `${prefix}${Date.now()}.json`;
-
-      console.log('Saving claims to:', pathname);
-
-      // Upload claims using SDK put method
-      await put(pathname, JSON.stringify(claims), {
-        token,
-        contentType: 'application/json',
-        access: 'public',
-      });
-
-      console.log('Claims saved successfully');
-    } else {
-      console.log('BLOB_READ_WRITE_TOKEN not set');
+    // Delete all existing files for this event
+    for (const blob of blobs) {
+      console.log('Deleting blob:', blob.pathname);
+      await del(blob.pathname, { token });
     }
-  } catch (error) {
-    console.error('Failed to save claims to Blob:', error);
-    throw error;
+
+    // Create new filename with timestamp
+    const pathname = `${prefix}${Date.now()}.json`;
+
+    console.log('Saving claims to:', pathname);
+
+    await put(pathname, JSON.stringify(claims), {
+      token,
+      contentType: 'application/json',
+      access: 'public',
+    });
+
+    console.log('Claims saved successfully');
+  } else {
+    console.log('BLOB_READ_WRITE_TOKEN not set');
   }
   // Always update in-memory fallback
   globalThis.inMemoryClaims[eventId] = claims;
@@ -134,6 +124,8 @@ module.exports = async function handler(req, res) {
 
       // GET /api/claims - List all event files
       if (isRootClaimsRoute) {
+        console.log('Listing all claims events');
+
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           const token = process.env.BLOB_READ_WRITE_TOKEN;
           const { blobs } = await list({
