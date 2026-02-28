@@ -2,91 +2,102 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-claims-{eventId}.json
 
-import { put, del, list } from '@vercel/blob';
+const { put, list, del } = require('@vercel/blob');
+
+// In-memory fallback for local development
+if (!globalThis.inMemoryClaims) {
+  globalThis.inMemoryClaims = {};
+}
 
 // Helper to get claims for a specific event
 async function getClaimsForEvent(eventId) {
-  try {
-    // Check if running in Vercel environment
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-claims-${eventId}-`;
+  console.log('Getting claims for eventId:', eventId);
 
-      // Use list() to find files with the prefix (handles GUID suffix)
-      const { list, get } = await import('@vercel/blob');
-      const { blobs } = await list({
-        prefix,
-        token,
-      });
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-claims-${eventId}-`;
 
-      // Get first matching blob (most recent)
-      if (blobs.length > 0) {
-        const blob = await get(blobs[0].pathname, { access: 'public', token });
+    console.log('Searching for blobs with prefix:', prefix);
 
-        if (blob) {
-          const text = await blob.stream.text();
-          return text ? JSON.parse(text) : [];
-        }
+    // List all blobs with the prefix (handles GUID suffix)
+    const { blobs } = await list({ prefix, token });
+
+    console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
+
+    // Get first matching blob (most recent)
+    if (blobs.length > 0) {
+      const blob = await get(blobs[0].pathname, { access: 'public', token });
+
+      console.log('Got blob:', blob.pathname);
+
+      if (blob) {
+        const text = await blob.stream.text();
+        const data = text ? JSON.parse(text) : [];
+        console.log('Parsed claims data:', data);
+        return data;
       }
+    } else {
+      console.log('No blobs found for eventId:', eventId);
     }
-  } catch (error) {
-    console.error('Failed to get claims from Blob:', error);
+  } else {
+    console.log('BLOB_READ_WRITE_TOKEN not set');
   }
   // Fallback to in-memory (for local development)
-  if (!globalThis.inMemoryClaims) {
-    globalThis.inMemoryClaims = {};
-  }
   return globalThis.inMemoryClaims[eventId] || [];
 }
 
 // Helper to save claims for a specific event
 async function saveClaimsForEvent(eventId, claims) {
-  try {
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-claims-${eventId}-`;
+  console.log('Saving claims for eventId:', eventId);
 
-      // List and delete existing files with the same prefix
-      const { list, del } = await import('@vercel/blob');
-      const { blobs } = await list({
-        prefix,
-        token,
-      });
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-claims-${eventId}-`;
 
-      // Delete all existing files for this event
-      for (const blob of blobs) {
-        await del(blob.pathname, { token });
-      }
+    console.log('Listing blobs with prefix:', prefix);
 
-      // Create new filename (Vercel will append GUID automatically)
-      const pathname = `${prefix}${Date.now()}.json`;
+    // List and delete existing files with the same prefix
+    const { blobs } = await list({ prefix, token });
 
-      // Upload claims using SDK put method
-      await put(pathname, JSON.stringify(claims), {
-        token,
-        contentType: 'application/json',
-        access: 'public',
-      });
+    console.log('Found existing blobs:', blobs.length);
+
+    // Delete all existing files for this event
+    for (const blob of blobs) {
+      console.log('Deleting blob:', blob.pathname);
+      await del(blob.pathname, { token });
     }
-  } catch (error) {
-    console.error('Failed to save claims to Blob:', error);
+
+    // Create new filename with timestamp
+    const pathname = `${prefix}${Date.now()}.json`;
+
+    console.log('Saving claims to:', pathname);
+
+    await put(pathname, JSON.stringify(claims), {
+      token,
+      contentType: 'application/json',
+      access: 'public',
+    });
+
+    console.log('Claims saved successfully');
+  } else {
+    console.log('BLOB_READ_WRITE_TOKEN not set');
   }
   // Always update in-memory fallback
-  if (!globalThis.inMemoryClaims) {
-    globalThis.inMemoryClaims = {};
-  }
   globalThis.inMemoryClaims[eventId] = claims;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '3600');
 
+  // Disable caching for real-time claims data (critical to prevent duplicate claims)
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+
   // Debug logging
-  console.log('Request:', { method: req.method, url: req.url, headers: req.headers });
+  console.log('Claims API Request:', { method: req.method, url: req.url });
 
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS preflight');
@@ -100,8 +111,12 @@ export default async function handler(req, res) {
   // Parse URL: split by / and filter empty strings
   const urlParts = url.split('/').filter(p => p.trim());
 
+  console.log('Parsed URL parts:', urlParts);
+
   // Root route for listing events
   const isRootClaimsRoute = url === '/api/claims' || url === '/api/claims/';
+
+  console.log('isRootClaimsRoute:', isRootClaimsRoute);
 
   try {
     if (method === 'GET') {
@@ -109,13 +124,15 @@ export default async function handler(req, res) {
 
       // GET /api/claims - List all event files
       if (isRootClaimsRoute) {
+        console.log('Listing all claims events');
+
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           const token = process.env.BLOB_READ_WRITE_TOKEN;
-          const { list } = await import('@vercel/blob');
           const { blobs } = await list({
             prefix: 'potluck-claims-',
             token,
           });
+          console.log('All claims blobs:', blobs.length);
           // Handle GUID in filename: potluck-claims-{eventId}-{guid}.json
           return res.json(blobs.map(b => {
             const filename = b.pathname.replace('potluck-claims-', '').replace('.json', '');
@@ -141,8 +158,10 @@ export default async function handler(req, res) {
       if (urlParts.length >= 5 && urlParts[3] === 'items') {
         const eventId = decodeURIComponent(urlParts[2]);
         const itemId = decodeURIComponent(urlParts[4]);
+        console.log('GET item claim:', { eventId, itemId, urlParts });
         const claims = await getClaimsForEvent(eventId);
         const claim = claims.find(c => c.eventId === eventId && c.itemId === itemId);
+        console.log('Item claim:', claim);
         return res.json({ claimedBy: claim?.guestName || null });
       }
 
@@ -173,24 +192,30 @@ export default async function handler(req, res) {
     if (method === 'POST') {
       // POST /api/claims - Must be root route
       if (isRootClaimsRoute) {
+        console.log('POST request body:', req.body);
+
         const { eventId, itemId, guestName } = req.body;
 
         if (!eventId || !itemId || !guestName) {
+          console.log('Missing required fields');
           return res.status(400).json({ error: 'Missing required fields' });
         }
 
         // Get current claims for this event
         const currentClaims = await getClaimsForEvent(eventId);
+        console.log('Current claims:', currentClaims);
 
         // Check if item is already claimed
         const existingClaim = currentClaims.find(c => c.eventId === eventId && c.itemId === itemId);
         if (existingClaim) {
+          console.log('Item already claimed by:', existingClaim.guestName);
           return res.status(409).json({ error: 'Item already claimed', claimedBy: existingClaim.guestName });
         }
 
         // Check if guest already claimed an item
         const guestExistingClaim = currentClaims.find(c => c.eventId === eventId && c.guestName === guestName);
         if (guestExistingClaim) {
+          console.log('Guest already claimed item:', guestExistingClaim.itemId);
           return res.status(409).json({ error: 'Guest already claimed an item', itemId: guestExistingClaim.itemId });
         }
 
@@ -200,6 +225,8 @@ export default async function handler(req, res) {
           guestName,
           claimTime: new Date().toISOString()
         };
+
+        console.log('Creating new claim:', newClaim);
 
         currentClaims.push(newClaim);
         await saveClaimsForEvent(eventId, currentClaims);
@@ -212,16 +239,21 @@ export default async function handler(req, res) {
 
       // PUT /api/claims - Modify claims (remove or update)
       if (isRootClaimsRoute) {
+        console.log('PUT request body:', req.body);
+
         const { eventId, itemId, action } = req.body;
 
         if (!eventId) {
+          console.log('Event ID required');
           return res.status(400).json({ error: 'Event ID required' });
         }
 
         const currentClaims = await getClaimsForEvent(eventId);
+        console.log('Current claims before action:', currentClaims);
 
         // Clear all claims for an event
         if (action === 'clear') {
+          console.log('Clearing all claims for event:', eventId);
           await saveClaimsForEvent(eventId, []);
           return res.json({ success: true });
         }
@@ -230,21 +262,25 @@ export default async function handler(req, res) {
         if (action === 'remove' && itemId) {
           const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
           if (claimIndex === -1) {
+            console.log('Claim not found:', { eventId, itemId });
             return res.status(404).json({ error: 'Claim not found' });
           }
+          console.log('Removing claim at index:', claimIndex);
           currentClaims.splice(claimIndex, 1);
           await saveClaimsForEvent(eventId, currentClaims);
           return res.json({ success: true });
         }
 
+        console.log('Invalid action:', action);
         return res.status(400).json({ error: 'Invalid action. Use "clear" or "remove"' });
       }
     }
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Claims API Error:', error);
+    console.error('Error stack:', error.stack);
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 
   console.log('No route matched:', { method, url, urlParts });
   return res.status(404).json({ error: 'Not found' });
-}
+};
