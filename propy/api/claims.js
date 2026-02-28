@@ -10,15 +10,24 @@ async function getClaimsForEvent(eventId) {
     // Check if running in Vercel environment
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const pathname = `potluck-claims-${eventId}.json`;
+      const prefix = `potluck-claims-${eventId}-`;
 
-      // Try to get the event's blob using SDK
-      const { get } = await import('@vercel/blob');
-      const blob = await get(pathname, { access: 'public', token });
+      // List all blobs with the prefix (Vercel appends GUID to filename)
+      const { list } = await import('@vercel/blob');
+      const { blobs } = await list({
+        prefix,
+        token,
+      });
 
-      if (blob) {
-        const text = await blob.stream.text();
-        return text ? JSON.parse(text) : [];
+      // Get the first matching blob (most recent)
+      if (blobs.length > 0) {
+        const { get } = await import('@vercel/blob');
+        const blob = await get(blobs[0].pathname, { access: 'public', token });
+
+        if (blob) {
+          const text = await blob.stream.text();
+          return text ? JSON.parse(text) : [];
+        }
       }
     }
   } catch (error) {
@@ -31,21 +40,33 @@ async function getClaimsForEvent(eventId) {
   return globalThis.inMemoryClaims[eventId] || [];
 }
 
-// Helper to save claims for a specific event (overwrites existing file)
+// Helper to save claims for a specific event (deletes old files with GUID suffix)
 async function saveClaimsForEvent(eventId, claims) {
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
+      const prefix = `potluck-claims-${eventId}-`;
 
-      // Fixed filename per event - overwrites if exists
-      const pathname = `potluck-claims-${eventId}.json`;
+      // List and delete existing files with the same prefix
+      const { list, del } = await import('@vercel/blob');
+      const { blobs } = await list({
+        prefix,
+        token,
+      });
+
+      // Delete all existing files for this event
+      for (const blob of blobs) {
+        await del(blob.pathname, { token });
+      }
+
+      // Create new filename (Vercel will append GUID automatically)
+      const pathname = `${prefix}${Date.now()}.json`;
 
       // Upload claims using SDK put method
       await put(pathname, JSON.stringify(claims), {
         token,
         contentType: 'application/json',
         access: 'public',
-        allowOverwrite: true, // Allow overwriting the same file
       });
     }
   } catch (error) {
@@ -96,11 +117,18 @@ export default async function handler(req, res) {
             token,
           });
           // Return list of event files with metadata
-          return res.json(blobs.map(b => ({
-            eventId: b.pathname.replace('potluck-claims-', '').replace('.json', ''),
-            uploadedAt: b.uploadedAt,
-            size: b.size,
-          })));
+          // Handle GUID in filename: potluck-claims-{eventId}-{guid}.json
+          return res.json(blobs.map(b => {
+            const filename = b.pathname.replace('potluck-claims-', '').replace('.json', '');
+            // Extract eventId (part before the dash/GUID)
+            const eventId = filename.split('-')[0];
+            return {
+              eventId,
+              uploadedAt: b.uploadedAt,
+              size: b.size,
+              pathname: b.pathname,
+            };
+          }));
         }
         // Fallback to in-memory events
         const events = Object.keys(globalThis.inMemoryClaims || {}).map(eventId => ({
