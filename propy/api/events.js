@@ -9,15 +9,23 @@ async function getEventData(eventId) {
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const pathname = `potluck-event-${eventId}.json`;
+      const prefix = `potluck-event-${eventId}-`;
 
-      // Use dynamic import for get (same pattern as claims.js)
-      const { get } = await import('@vercel/blob');
-      const blob = await get(pathname, { access: 'public', token });
+      // Use list() to find files with the prefix (handles GUID suffix)
+      const { list, get } = await import('@vercel/blob');
+      const { blobs } = await list({
+        prefix,
+        token,
+      });
 
-      if (blob) {
-        const text = await blob.stream.text();
-        return text ? JSON.parse(text) : null;
+      // Get first matching blob (most recent)
+      if (blobs.length > 0) {
+        const blob = await get(blobs[0].pathname, { access: 'public', token });
+
+        if (blob) {
+          const text = await blob.stream.text();
+          return text ? JSON.parse(text) : null;
+        }
       }
     }
   } catch (error) {
@@ -31,13 +39,27 @@ async function saveEventData(eventId, eventData) {
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const pathname = `potluck-event-${eventId}.json`;
+      const prefix = `potluck-event-${eventId}-`;
+
+      // List and delete existing files with the same prefix
+      const { list, del } = await import('@vercel/blob');
+      const { blobs } = await list({
+        prefix,
+        token,
+      });
+
+      // Delete all existing files for this event
+      for (const blob of blobs) {
+        await del(blob.pathname, { token });
+      }
+
+      // Create new filename (Vercel will append GUID automatically)
+      const pathname = `${prefix}${Date.now()}.json`;
 
       await put(pathname, JSON.stringify(eventData), {
         token,
         contentType: 'application/json',
         access: 'public',
-        allowOverwrite: true,
       });
     }
   } catch (error) {
@@ -72,15 +94,22 @@ export default async function handler(req, res) {
       if (isRootEventsRoute) {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           const token = process.env.BLOB_READ_WRITE_TOKEN;
+          const { list } = await import('@vercel/blob');
           const { blobs } = await list({
             prefix: 'potluck-event-',
             token,
           });
-          return res.json(blobs.map(b => ({
-            eventId: b.pathname.replace('potluck-event-', '').replace('.json', ''),
-            uploadedAt: b.uploadedAt,
-            size: b.size,
-          })));
+          // Handle GUID in filename: potluck-event-{eventId}-{guid}.json
+          return res.json(blobs.map(b => {
+            const filename = b.pathname.replace('potluck-event-', '').replace('.json', '');
+            // Extract eventId (part before dash/GUID)
+            const eventId = filename.split('-')[0];
+            return {
+              eventId,
+              uploadedAt: b.uploadedAt,
+              size: b.size,
+            };
+          }));
         }
         return res.json([]);
       }
@@ -159,12 +188,21 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'Event ID required' });
         }
 
-        // Use del function to delete the blob file
+        // Use list() to find and delete all blob files with the event prefix (handles GUID suffix)
         const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const pathname = `potluck-event-${eventId}.json`;
+        const prefix = `potluck-event-${eventId}-`;
 
         if (token) {
-          await del(pathname, { token });
+          const { list, del } = await import('@vercel/blob');
+          const { blobs } = await list({
+            prefix,
+            token,
+          });
+
+          // Delete all matching files
+          for (const blob of blobs) {
+            await del(blob.pathname, { token });
+          }
         }
 
         return res.json({ success: true });
