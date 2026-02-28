@@ -9,7 +9,7 @@ async function getEventData(eventId) {
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-event-${eventId}-`;
+      const prefix = `potluck-event-${eventId}`;
 
       // Use list() to find files with the prefix (handles GUID suffix)
       const { list, get } = await import('@vercel/blob');
@@ -39,7 +39,7 @@ async function saveEventData(eventId, eventData) {
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-event-${eventId}-`;
+      const prefix = `potluck-event-${eventId}`;
 
       // List and delete existing files with the same prefix
       const { list, del } = await import('@vercel/blob');
@@ -54,7 +54,7 @@ async function saveEventData(eventId, eventData) {
       }
 
       // Create new filename (Vercel will append GUID automatically)
-      const pathname = `${prefix}${Date.now()}.json`;
+      const pathname = `${prefix}.json`;
 
       await put(pathname, JSON.stringify(eventData), {
         token,
