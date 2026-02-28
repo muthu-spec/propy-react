@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import '../css/host-auth.css'
+import '../css/host-auth.css';
 import eventsApi from '../services/events-api';
+import { EventDetailsCard } from '../components/event-details-card';
 
 interface MenuItem {
   id: string;
@@ -250,47 +251,21 @@ export const HostAuthSystem = () => {
           </button>
         </form>
       ) : (
-        <div className="magic-link-card">
-          <h2>Event Created!</h2>
-          <p>Share this link with your guests:</p>
-          <div className="magic-link-wrapper">
-            <div className="magic-link-container">
-              {magicLink}
-            </div>
-            <button
-              onClick={() => navigator.clipboard.writeText(magicLink)}
-              className="copy-button"
-              title="Copy Link"
-            >
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z" fill="currentColor"/>
-                <path d="M15 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H15C16.1 23 17 22.1 17 21V7C17 5.9 16.1 5 15 5ZM15 21H8V7H15V21Z" fill="currentColor"/>
-              </svg>
-            </button>
-          </div>
-
-          <div style={{marginTop: '2rem'}}>
-            <h3>Event Details:</h3>
-            <p><strong>Title:</strong> {eventDetails.title}</p>
-            <p><strong>Date:</strong> {eventDetails.date}</p>
-            <p><strong>Location:</strong> {eventDetails.location}</p>
-            <p><strong>Drop Time:</strong> {new Date(eventDetails.drop_time || Date.now()).toLocaleString()}</p>
-            <p><strong>Menu Items:</strong> {menuItems.length} items</p>
-          </div>
-
-          <button
-            onClick={() => {
-              setMagicLink('');
-              setEventDetails({ title: '', date: '', location: '', drop_time: '' });
-              setMenuItems([]);
-              setNewMenuItem('');
-            }}
-            className="verify-button"
-            style={{marginTop: '1rem'}}
-          >
-            Create Another Event
-          </button>
-        </div>
+        <EventDetailsCard
+          title={eventDetails.title}
+          date={eventDetails.date}
+          location={eventDetails.location}
+          drop_time={eventDetails.drop_time || new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString()}
+          menuItems={menuItems}
+          magicLink={magicLink}
+          onCopyLink={() => navigator.clipboard.writeText(magicLink)}
+          onCreateAnother={() => {
+            setMagicLink('');
+            setEventDetails({ title: '', date: '', location: '', drop_time: '' });
+            setMenuItems([]);
+            setNewMenuItem('');
+          }}
+        />
       )}
     </div>
   );
