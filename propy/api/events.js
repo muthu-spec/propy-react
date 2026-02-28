@@ -85,6 +85,17 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '3600');
 
+  console.log('[Events API] Request received:', {
+    method: req.method,
+    url: req.url,
+    path: req.url,
+    headers: {
+      'user-agent': req.headers['user-agent'],
+      'host': req.headers['host'],
+      'referer': req.headers['referer'],
+      'origin': req.headers['origin']
+    }
+  });
   // Disable caching for real-time data
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
