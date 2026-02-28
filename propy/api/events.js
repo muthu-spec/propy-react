@@ -2,7 +2,7 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-event-{eventId}.json
 
-import { put, get, list } from '@vercel/blob';
+const { put, get, list } = require('@vercel/blob');
 
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
@@ -44,7 +44,7 @@ async function saveEventData(eventId, eventData) {
   }
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
             prefix: 'potluck-event-',
             token,
           });
-          return res.json(blobs.blobs.map(b => ({
+          return res.json(blobs.map(b => ({
             eventId: b.pathname.replace('potluck-event-', '').replace('.json', ''),
             uploadedAt: b.uploadedAt,
             size: b.size,
@@ -151,15 +151,20 @@ export default async function handler(req, res) {
     if (method === 'DELETE') {
       // DELETE /api/events - Delete an event
       if (isRootEventsRoute) {
+        const { del } = require('@vercel/blob');
         const { eventId } = req.body;
 
         if (!eventId) {
           return res.status(400).json({ error: 'Event ID required' });
         }
 
-        // Note: Vercel Blob doesn't have a simple delete for files, so we save an empty object
-        // In production, you might want to use the del() function instead
-        await saveEventData(eventId, null);
+        const token = process.env.BLOB_READ_WRITE_TOKEN;
+        const pathname = `potluck-event-${eventId}.json`;
+
+        if (token) {
+          await del(pathname, { token });
+        }
+
         return res.json({ success: true });
       }
     }
@@ -169,4 +174,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(404).json({ error: 'Not found' });
-}
+};
