@@ -75,7 +75,17 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '3600');
 
-  console.log('Events API Request:', { method: req.method, url: req.url });
+  console.log('[Events API] Request received:', {
+    method: req.method,
+    url: req.url,
+    path: req.url,
+    headers: {
+      'user-agent': req.headers['user-agent'],
+      'host': req.headers['host'],
+      'referer': req.headers['referer'],
+      'origin': req.headers['origin']
+    }
+  });
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
