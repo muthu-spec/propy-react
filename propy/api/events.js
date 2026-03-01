@@ -4,30 +4,36 @@
 
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
-  try {
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-event-${eventId}-`;
+  console.log('Getting event data for eventId:', eventId);
 
-      // Use list() to find files with the prefix (handles GUID suffix)
-      const { list, get } = await import('@vercel/blob');
-      const { blobs } = await list({
-        prefix,
-        token,
-      });
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-event-${eventId}-`;
 
-      // Get first matching blob (most recent)
-      if (blobs.length > 0) {
-        const blob = await get(blobs[0].pathname, { access: 'public', token });
+    console.log('Searching for blobs with prefix:', prefix);
 
-        if (blob) {
-          const text = await blob.stream.text();
-          return text ? JSON.parse(text) : null;
-        }
+    // List all blobs with the prefix (handles GUID suffix)
+    const { blobs } = await list({ prefix, token });
+
+    console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
+
+    // Get first matching blob (most recent)
+    if (blobs.length > 0) {
+      const blob = await get(blobs[0].pathname, { access: 'public', token });
+
+      console.log('Got blob:', blob.pathname);
+
+      if (blob) {
+        const text = await blob.stream.text();
+        const data = text ? JSON.parse(text) : null;
+        console.log('Parsed event data:', data);
+        return data;
       }
+    } else {
+      console.log('No blobs found for eventId:', eventId);
     }
-  } catch (error) {
-    console.error('Failed to get event from Blob:', error);
+  } else {
+    console.log('BLOB_READ_WRITE_TOKEN not set');
   }
   return null;
 }
@@ -51,27 +57,54 @@ async function saveEventData(eventId, eventData) {
         await del(blob.pathname, { token });
       }
 
-      // Create new filename (Vercel will append GUID automatically)
-      const pathname = `${prefix}${Date.now()}.json`;
+    // List and delete existing files with the same prefix
+    const { blobs } = await list({ prefix, token });
 
-      await put(pathname, JSON.stringify(eventData), {
-        token,
-        contentType: 'application/json',
-        access: 'public',
-      });
+    console.log('Found existing blobs:', blobs.length);
+
+    // Delete all existing files for this event
+    for (const blob of blobs) {
+      console.log('Deleting blob:', blob.pathname);
+      await del(blob.pathname, { token });
     }
-  } catch (error) {
-    console.error('Failed to save event to Blob:', error);
-    throw error;
+
+    // Create new filename with timestamp
+    const pathname = `${prefix}${Date.now()}.json`;
+
+    console.log('Saving event to:', pathname);
+
+    await put(pathname, JSON.stringify(eventData), {
+      token,
+      contentType: 'application/json',
+      access: 'public',
+    });
+
+    console.log('Event saved successfully');
+  } else {
+    console.log('BLOB_READ_WRITE_TOKEN not set');
   }
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '3600');
+
+  console.log('[Events API] Request received:', {
+    method: req.method,
+    url: req.url,
+    path: req.url,
+    headers: {
+      'user-agent': req.headers['user-agent'],
+      'host': req.headers['host'],
+      'referer': req.headers['referer'],
+      'origin': req.headers['origin']
+    }
+  });
+  // Disable caching for real-time data
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
   console.log('Events API Request:', { method: req.method, url: req.url });
 
@@ -84,19 +117,25 @@ export default async function handler(req, res) {
   const url = req.url;
   const urlParts = url.split('/').filter(p => p.trim());
 
+  console.log('Parsed URL parts:', urlParts);
+
   const isRootEventsRoute = url === '/api/events' || url === '/api/events/';
+
+  console.log('isRootEventsRoute:', isRootEventsRoute);
 
   try {
     if (method === 'GET') {
       // GET /api/events - List all events
       if (isRootEventsRoute) {
+        console.log('Listing all events');
+
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           const token = process.env.BLOB_READ_WRITE_TOKEN;
-          const { list } = await import('@vercel/blob');
           const { blobs } = await list({
             prefix: 'potluck-event-',
             token,
           });
+          console.log('All events blobs:', blobs.length);
           // Handle GUID in filename: potluck-event-{eventId}-{guid}.json
           return res.json(blobs.map(b => {
             const filename = b.pathname.replace('potluck-event-', '').replace('.json', '');
@@ -106,17 +145,21 @@ export default async function handler(req, res) {
               eventId,
               uploadedAt: b.uploadedAt,
               size: b.size,
+              pathname: b.pathname,
             };
           }));
         }
+        console.log('No BLOB_READ_WRITE_TOKEN, returning empty array');
         return res.json([]);
       }
 
       // GET /api/events/:eventId
       if (urlParts.length >= 3 && urlParts[0] === 'api' && urlParts[1] === 'events') {
         const eventId = decodeURIComponent(urlParts[2]);
+        console.log('Getting event for eventId:', eventId);
         const eventData = await getEventData(eventId);
         if (!eventData) {
+          console.log('Event not found for eventId:', eventId);
           return res.status(404).json({ error: 'Event not found' });
         }
         return res.json(eventData);
@@ -126,9 +169,12 @@ export default async function handler(req, res) {
     if (method === 'POST') {
       // POST /api/events - Create a new event
       if (isRootEventsRoute) {
+        console.log('POST request body:', req.body);
+
         const { eventId, title, date, location, drop_time, menu, phone } = req.body;
 
         if (!eventId || !title || !date || !location) {
+          console.log('Missing required fields');
           return res.status(400).json({ error: 'Missing required fields: eventId, title, date, location' });
         }
 
@@ -137,11 +183,13 @@ export default async function handler(req, res) {
           title,
           date,
           location,
-          drop_time: drop_time || new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(), // Default 3 hours from now
+          drop_time: drop_time || new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
           menu: menu || [],
           phone: phone || null,
           createdAt: new Date().toISOString(),
         };
+
+        console.log('About to save event data:', eventData);
 
         await saveEventData(eventId, eventData);
         return res.status(201).json(eventData);
@@ -151,6 +199,8 @@ export default async function handler(req, res) {
     if (method === 'PUT') {
       // PUT /api/events - Update an event
       if (isRootEventsRoute) {
+        console.log('PUT request body:', req.body);
+
         const { eventId, title, date, location, drop_time, menu } = req.body;
 
         if (!eventId) {
@@ -172,6 +222,8 @@ export default async function handler(req, res) {
           updatedAt: new Date().toISOString(),
         };
 
+        console.log('About to save updated event data:', updatedEvent);
+
         await saveEventData(eventId, updatedEvent);
         return res.json(updatedEvent);
       }
@@ -180,25 +232,28 @@ export default async function handler(req, res) {
     if (method === 'DELETE') {
       // DELETE /api/events - Delete an event
       if (isRootEventsRoute) {
+        console.log('DELETE request body:', req.body);
+
         const { eventId } = req.body;
 
         if (!eventId) {
           return res.status(400).json({ error: 'Event ID required' });
         }
 
-        // Use list() to find and delete all blob files with the event prefix (handles GUID suffix)
+        // Delete all blob files with the event prefix (handles GUID suffix)
         const token = process.env.BLOB_READ_WRITE_TOKEN;
         const prefix = `potluck-event-${eventId}-`;
 
         if (token) {
-          const { list, del } = await import('@vercel/blob');
-          const { blobs } = await list({
-            prefix,
-            token,
-          });
+          console.log('Listing blobs to delete with prefix:', prefix);
+
+          const { blobs } = await list({ prefix, token });
+
+          console.log('Found blobs to delete:', blobs.length);
 
           // Delete all matching files
           for (const blob of blobs) {
+            console.log('Deleting blob:', blob.pathname);
             await del(blob.pathname, { token });
           }
         }
@@ -208,8 +263,10 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     console.error('Events API Error:', error);
+    console.error('Error stack:', error.stack);
     return res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 
+  console.log('No route matched:', { method, url, urlParts });
   return res.status(404).json({ error: 'Not found' });
-}
+};

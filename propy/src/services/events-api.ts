@@ -34,16 +34,22 @@ const eventsApi = {
   // Get event data by ID
   async getEventById(eventId: string): Promise<EventData | null> {
     try {
-      const response = await fetch(`${API_BASE_URL}/events/${eventId}`);
+      const url = `${API_BASE_URL}/events/${eventId}`;
+      console.log('[events-api] Fetching event:', { url, eventId, API_BASE_URL });
+      const response = await fetch(url);
+      console.log('[events-api] Response:', { status: response.status, statusText: response.statusText, ok: response.ok });
       if (!response.ok) {
         if (response.status === 404) {
+          console.log('[events-api] Event not found (404)');
           return null;
         }
         throw new Error('Failed to fetch event');
       }
-      return response.json();
+      const data = await response.json();
+      console.log('[events-api] Event data loaded:', data);
+      return data;
     } catch (error) {
-      console.error('Failed to fetch event:', error);
+      console.error('[events-api] Failed to fetch event:', error);
       return null;
     }
   },
