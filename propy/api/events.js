@@ -2,7 +2,7 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-event-{eventId}.json
 
-import { put, list, del, get } from '@vercel/blob';
+import { put, list, del } from '@vercel/blob';
 
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
@@ -21,16 +21,15 @@ async function getEventData(eventId) {
 
     // Get first matching blob (most recent)
     if (blobs.length > 0) {
-      const blob = await get(blobs[0].pathname, { access: 'public', token });
-
+      const blob = blobs[0];
       console.log('Got blob:', blob.pathname);
 
-      if (blob) {
-        const text = await blob.stream.text();
-        const data = text ? JSON.parse(text) : null;
-        console.log('Parsed event data:', data);
-        return data;
-      }
+      // Fetch blob content using its URL
+      const response = await fetch(blob.url);
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
+      console.log('Parsed event data:', data);
+      return data;
     } else {
       console.log('No blobs found for eventId:', eventId);
     }
