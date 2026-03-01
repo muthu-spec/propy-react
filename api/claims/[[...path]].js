@@ -2,7 +2,7 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-claims-{eventId}.json
 
-import { put, list, del } from '@vercel/blob';
+import { put, list, del, getDownloadUrl } from '@vercel/blob';
 
 // In-memory fallback for local development
 if (!globalThis.inMemoryClaims) {
@@ -29,8 +29,9 @@ async function getClaimsForEvent(eventId) {
       const blob = blobs[0];
       console.log('Got blob:', blob.pathname);
 
-      // Fetch blob content using its URL
-      const response = await fetch(blob.url);
+      // Get proper download URL and fetch blob content
+      const downloadUrl = await getDownloadUrl(blob.pathname, { token });
+      const response = await fetch(downloadUrl);
       const text = await response.text();
       const data = text ? JSON.parse(text) : [];
       console.log('Parsed claims data:', data);
