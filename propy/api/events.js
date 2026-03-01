@@ -48,21 +48,8 @@ async function saveEventData(eventId, eventData) {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     const prefix = `potluck-event-${eventId}-`;
 
-    console.log('Listing blobs with prefix:', prefix);
-
-    // List and delete existing files with same prefix
-    const { blobs } = await list({ prefix, token });
-
-    console.log('Found existing blobs:', blobs.length);
-
-    // Delete all existing files for this event
-    for (const blob of blobs) {
-      console.log('Deleting blob:', blob.pathname);
-      await del(blob.pathname, { token });
-    }
-
     // Create new filename with timestamp
-    const pathname = `${prefix}${Date.now()}.json`;
+    const pathname = `${prefix}.json`;
 
     console.log('Saving event to:', pathname);
 
