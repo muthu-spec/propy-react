@@ -2,6 +2,13 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-claims-{eventId}.json
 
+import { put, list, del, get } from '@vercel/blob';
+
+// In-memory fallback for local development
+if (!globalThis.inMemoryClaims) {
+  globalThis.inMemoryClaims = {};
+}
+
 // Helper to get claims for a specific event
 async function getClaimsForEvent(eventId) {
   console.log('Getting claims for eventId:', eventId);
@@ -12,7 +19,7 @@ async function getClaimsForEvent(eventId) {
 
     console.log('Searching for blobs with prefix:', prefix);
 
-    // List all blobs with the prefix (handles GUID suffix)
+    // List all blobs with prefix (handles GUID suffix)
     const { blobs } = await list({ prefix, token });
 
     console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
@@ -41,22 +48,11 @@ async function getClaimsForEvent(eventId) {
 
 // Helper to save claims for a specific event
 async function saveClaimsForEvent(eventId, claims) {
-  try {
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-claims-${eventId}-`;
+  console.log('Saving claims for eventId:', eventId);
 
-      // List and delete existing files with the same prefix
-      const { list, del, put } = await import('@vercel/blob');
-      const { blobs } = await list({
-        prefix,
-        token,
-      });
-
-      // Delete all existing files for this event
-      for (const blob of blobs) {
-        await del(blob.pathname, { token });
-      }
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-claims-${eventId}-`;
 
     console.log('Listing blobs with prefix:', prefix);
 
@@ -90,7 +86,7 @@ async function saveClaimsForEvent(eventId, claims) {
   globalThis.inMemoryClaims[eventId] = claims;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -287,4 +283,4 @@ module.exports = async function handler(req, res) {
 
   console.log('No route matched:', { method, url, urlParts });
   return res.status(404).json({ error: 'Not found' });
-};
+}
