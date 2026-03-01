@@ -112,8 +112,10 @@ export default async function handler(req, res) {
 
   console.log('Parsed URL parts:', urlParts);
 
-  // Root route for listing events
-  const isRootClaimsRoute = url === '/api/claims' || url === '/api/claims/';
+  // Vercel serverless function: req.url only contains the path AFTER the function path
+  // /api/claims → req.url is '/' or ''
+  // /api/claims/:eventId → req.url is '/:eventId'
+  const isRootClaimsRoute = url === '/' || url === '' || url === '/api/claims' || url === '/api/claims/';
 
   console.log('isRootClaimsRoute:', isRootClaimsRoute);
 
@@ -154,9 +156,10 @@ export default async function handler(req, res) {
       }
 
       // GET /api/claims/:eventId/items/:itemId - Must check before /:eventId route
-      if (urlParts.length >= 5 && urlParts[3] === 'items') {
-        const eventId = decodeURIComponent(urlParts[2]);
-        const itemId = decodeURIComponent(urlParts[4]);
+      // In Vercel serverless functions, req.url is '/:eventId/items/:itemId'
+      if (urlParts.length >= 3 && urlParts[1] === 'items') {
+        const eventId = decodeURIComponent(urlParts[0]);
+        const itemId = decodeURIComponent(urlParts[2]);
         console.log('GET item claim:', { eventId, itemId, urlParts });
         const claims = await getClaimsForEvent(eventId);
         const claim = claims.find(c => c.eventId === eventId && c.itemId === itemId);
@@ -165,9 +168,10 @@ export default async function handler(req, res) {
       }
 
       // GET /api/claims/:eventId/guests/:guestName - Must check before /:eventId route
-      if (urlParts.length >= 5 && urlParts[3] === 'guests') {
-        const eventId = decodeURIComponent(urlParts[2]);
-        const guestName = decodeURIComponent(urlParts[4]);
+      // In Vercel serverless functions, req.url is '/:eventId/guests/:guestName'
+      if (urlParts.length >= 3 && urlParts[1] === 'guests') {
+        const eventId = decodeURIComponent(urlParts[0]);
+        const guestName = decodeURIComponent(urlParts[2]);
         console.log('GET guest claims:', { eventId, guestName, urlParts });
         const claims = await getClaimsForEvent(eventId);
         const guestClaims = claims.filter(c => c.eventId === eventId && c.guestName === guestName);
@@ -176,11 +180,11 @@ export default async function handler(req, res) {
       }
 
       // GET /api/claims/:eventId
-      if (urlParts.length >= 3 && urlParts[0] === 'api' && urlParts[1] === 'claims' && urlParts[2]) {
+      // In Vercel serverless functions, req.url is '/:eventId'
+      if (urlParts.length >= 1) {
         // Only match if not already matched by items or guests routes
-        // Check that there's no 'items' or 'guests' segment at index 3
-        if (!urlParts[3] || (urlParts[3] !== 'items' && urlParts[3] !== 'guests')) {
-          const eventId = decodeURIComponent(urlParts[2]);
+        if (urlParts.length === 1 || (urlParts[1] !== 'items' && urlParts[1] !== 'guests')) {
+          const eventId = decodeURIComponent(urlParts[0]);
           console.log('GET claims for event:', eventId);
           const claims = await getClaimsForEvent(eventId);
           return res.json(claims);
