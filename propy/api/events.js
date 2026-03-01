@@ -2,6 +2,8 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-event-{eventId}.json
 
+import { put, list, del, get } from '@vercel/blob';
+
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
   console.log('Getting event data for eventId:', eventId);
@@ -12,7 +14,7 @@ async function getEventData(eventId) {
 
     console.log('Searching for blobs with prefix:', prefix);
 
-    // List all blobs with the prefix (handles GUID suffix)
+    // List all blobs with prefix (handles GUID suffix)
     const { blobs } = await list({ prefix, token });
 
     console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
@@ -40,24 +42,15 @@ async function getEventData(eventId) {
 
 // Helper to save event data for a specific event
 async function saveEventData(eventId, eventData) {
-  try {
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-event-${eventId}-`;
+  console.log('Saving event data:', { eventId });
 
-      // List and delete existing files with the same prefix
-      const { list, del, put } = await import('@vercel/blob');
-      const { blobs } = await list({
-        prefix,
-        token,
-      });
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const prefix = `potluck-event-${eventId}-`;
 
-      // Delete all existing files for this event
-      for (const blob of blobs) {
-        await del(blob.pathname, { token });
-      }
+    console.log('Listing blobs with prefix:', prefix);
 
-    // List and delete existing files with the same prefix
+    // List and delete existing files with same prefix
     const { blobs } = await list({ prefix, token });
 
     console.log('Found existing blobs:', blobs.length);
@@ -85,7 +78,7 @@ async function saveEventData(eventId, eventData) {
   }
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -103,8 +96,6 @@ module.exports = async function handler(req, res) {
       'origin': req.headers['origin']
     }
   });
-  // Disable caching for real-time data
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
   console.log('Events API Request:', { method: req.method, url: req.url });
 
@@ -240,7 +231,7 @@ module.exports = async function handler(req, res) {
           return res.status(400).json({ error: 'Event ID required' });
         }
 
-        // Delete all blob files with the event prefix (handles GUID suffix)
+        // Delete all blob files with event prefix (handles GUID suffix)
         const token = process.env.BLOB_READ_WRITE_TOKEN;
         const prefix = `potluck-event-${eventId}-`;
 
@@ -269,4 +260,4 @@ module.exports = async function handler(req, res) {
 
   console.log('No route matched:', { method, url, urlParts });
   return res.status(404).json({ error: 'Not found' });
-};
+}
