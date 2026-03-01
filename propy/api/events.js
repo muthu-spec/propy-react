@@ -4,6 +4,11 @@
 
 import { put, list, del } from '@vercel/blob';
 
+// In-memory fallback for local development
+if (!globalThis.inMemoryEvents) {
+  globalThis.inMemoryEvents = {};
+}
+
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
   console.log('Getting event data for eventId:', eventId);
@@ -36,6 +41,16 @@ async function getEventData(eventId) {
   } else {
     console.log('BLOB_READ_WRITE_TOKEN not set');
   }
+
+  // Fallback to in-memory storage (for local development)
+  console.log('Checking in-memory storage for:', eventId);
+  const inMemoryEvent = globalThis.inMemoryEvents[eventId];
+  if (inMemoryEvent) {
+    console.log('Found event in in-memory storage:', eventId);
+    return inMemoryEvent;
+  }
+
+  console.log('Event not found in in-memory storage:', eventId);
   return null;
 }
 
@@ -44,24 +59,33 @@ async function saveEventData(eventId, eventData) {
   console.log('Saving event data:', { eventId });
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const prefix = `potluck-event-${eventId}-`;
+    try {
+      const token = process.env.BLOB_READ_WRITE_TOKEN;
+      const prefix = `potluck-event-${eventId}-`;
 
-    // Create new filename with timestamp
-    const pathname = `${prefix}.json`;
+      // Create new filename with timestamp
+      const pathname = `${prefix}.json`;
 
-    console.log('Saving event to:', pathname);
+      console.log('Saving event to:', pathname);
 
-    await put(pathname, JSON.stringify(eventData), {
-      token,
-      contentType: 'application/json',
-      access: 'public',
-    });
+      await put(pathname, JSON.stringify(eventData), {
+        token,
+        contentType: 'application/json',
+        access: 'public',
+      });
 
-    console.log('Event saved successfully');
+      console.log('Event saved successfully to:', pathname);
+    } catch (error) {
+      console.error('Failed to save event to blob:', error);
+      throw new Error(`Failed to save event to blob storage: ${error.message}`);
+    }
   } else {
-    console.log('BLOB_READ_WRITE_TOKEN not set');
+    console.log('BLOB_READ_WRITE_TOKEN not set, using in-memory storage');
   }
+
+  // Always update in-memory fallback (for local development)
+  globalThis.inMemoryEvents[eventId] = eventData;
+  console.log('Event saved to in-memory storage for:', eventId);
 }
 
 export default async function handler(req, res) {
@@ -96,7 +120,10 @@ export default async function handler(req, res) {
 
   console.log('Parsed URL parts:', urlParts);
 
-  const isRootEventsRoute = url === '/api/events' || url === '/api/events/';
+  // Vercel serverless function: req.url only contains the path AFTER the function path
+  // /api/events → req.url is '/' or ''
+  // /api/events/:eventId → req.url is '/:eventId'
+  const isRootEventsRoute = url === '/' || url === '' || url === '/api/events' || url === '/api/events/';
 
   console.log('isRootEventsRoute:', isRootEventsRoute);
 
@@ -131,8 +158,9 @@ export default async function handler(req, res) {
       }
 
       // GET /api/events/:eventId
-      if (urlParts.length >= 3 && urlParts[0] === 'api' && urlParts[1] === 'events') {
-        const eventId = decodeURIComponent(urlParts[2]);
+      // In Vercel serverless functions, req.url is just '/:eventId'
+      if (urlParts.length >= 1) {
+        const eventId = decodeURIComponent(urlParts[0]);
         console.log('Getting event for eventId:', eventId);
         const eventData = await getEventData(eventId);
         if (!eventData) {
