@@ -4,7 +4,6 @@
 
 import { put, list, del } from '@vercel/blob';
 
-// Helper to get event data for a specific event
 async function getEventData(eventId) {
   console.log('Getting event data for eventId:', eventId);
 
