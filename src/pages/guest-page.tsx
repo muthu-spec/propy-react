@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
+import React, { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import '../css/guest-page.css';
 import claimsApi from '../services/claims-api';
 
