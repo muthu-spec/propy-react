@@ -2,8 +2,6 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-claims-{eventId}.json
 
-import { put, del, list } from '@vercel/blob';
-
 // Helper to get claims for a specific event
 async function getClaimsForEvent(eventId) {
   try {
@@ -47,7 +45,7 @@ async function saveClaimsForEvent(eventId, claims) {
       const prefix = `potluck-claims-${eventId}-`;
 
       // List and delete existing files with the same prefix
-      const { list, del } = await import('@vercel/blob');
+      const { list, del, put } = await import('@vercel/blob');
       const { blobs } = await list({
         prefix,
         token,
