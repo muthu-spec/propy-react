@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type ChangeEvent } from 'react';
+import React, { useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
 import '../css/guest-page.css';
 import claimsApi from '../services/claims-api';
 
@@ -50,6 +50,9 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
   // Local state for menu (initialized from API)
   const [menuState, setMenuState] = useState<MenuItem[]>(eventData.menu);
 
+  // Track if claims have been loaded to prevent duplicate API calls
+  const claimsLoadedRef = useRef<Set<string>>(new Set());
+
   // Load event claims and menu state on mount
   useEffect(() => {
     const loadClaims = async () => {
@@ -65,13 +68,19 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
             claimedBy: claim?.guestName
           };
         }));
+
+        // Mark as loaded
+        claimsLoadedRef.current.add(eventId);
       } catch (error) {
         console.error('Failed to load event claims:', error);
       }
     };
 
-    loadClaims();
-  }, [eventId, eventData.menu]);
+    // Only load claims once per eventId (not on every render)
+    if (!claimsLoadedRef.current.has(eventId)) {
+      loadClaims();
+    }
+  }, [eventId]);
 
   // 2. Countdown State
   const [timeLeft, setTimeLeft] = useState<string>("");
