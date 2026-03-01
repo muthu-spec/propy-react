@@ -130,36 +130,36 @@ export default async function handler(req, res) {
   try {
     if (method === 'GET') {
       // GET /api/events - List all events
-      // if (isRootEventsRoute) {
-      //   console.log('Listing all events');
+      if (isRootEventsRoute) {
+        console.log('Listing all events');
 
-      //   if (process.env.BLOB_READ_WRITE_TOKEN) {
-      //     const token = process.env.BLOB_READ_WRITE_TOKEN;
-      //     const { blobs } = await list({
-      //       prefix: 'potluck-event-',
-      //       token,
-      //     });
-      //     console.log('All events blobs:', blobs.length);
-      //     // Handle GUID in filename: potluck-event-{eventId}-{guid}.json
-      //     return res.json(blobs.map(b => {
-      //       const filename = b.pathname.replace('potluck-event-', '').replace('.json', '');
-      //       // Extract eventId (part before dash/GUID)
-      //       const eventId = filename.split('-')[0];
-      //       return {
-      //         eventId,
-      //         uploadedAt: b.uploadedAt,
-      //         size: b.size,
-      //         pathname: b.pathname,
-      //       };
-      //     }));
-      //   }
-      //   console.log('No BLOB_READ_WRITE_TOKEN, returning empty array');
-      //   return res.json([]);
-      // }
+        if (process.env.BLOB_READ_WRITE_TOKEN) {
+          const token = process.env.BLOB_READ_WRITE_TOKEN;
+          const { blobs } = await list({
+            prefix: 'potluck-event-',
+            token,
+          });
+          console.log('All events blobs:', blobs.length);
+          // Handle GUID in filename: potluck-event-{eventId}-{guid}.json
+          return res.json(blobs.map(b => {
+            const filename = b.pathname.replace('potluck-event-', '').replace('.json', '');
+            // Extract eventId (part before dash/GUID)
+            const eventId = filename.split('-')[0];
+            return {
+              eventId,
+              uploadedAt: b.uploadedAt,
+              size: b.size,
+              pathname: b.pathname,
+            };
+          }));
+        }
+        console.log('No BLOB_READ_WRITE_TOKEN, returning empty array');
+        return res.json([]);
+      }
 
       // GET /api/events/:eventId
       // In Vercel serverless functions, req.url is just '/:eventId'
-      // if (urlParts.length >= 1) {
+      if (urlParts.length >= 1) {
         const eventId = decodeURIComponent(urlParts[0]);
         console.log('Getting event for eventId:', eventId);
         const eventData = await getEventData(eventId);
@@ -168,7 +168,7 @@ export default async function handler(req, res) {
           return res.status(404).json({ error: 'Event not found' });
         }
         return res.json(eventData);
-      //}
+      }
     }
 
     if (method === 'POST') {
