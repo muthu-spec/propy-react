@@ -29,10 +29,10 @@ async function getEventData(eventId) {
       const blob = blobs[0];
       console.log('Got blob:', blob.pathname);
 
-      // Use blob's download URL directly (publicly accessible)
-      const downloadUrl = blob.downloadUrl || blob.url;
-      console.log('Fetching blob from:', downloadUrl);
-      const response = await fetch(downloadUrl);
+      // Fetch blob content using blob.url (this is the proper download URL)
+      console.log('Fetching blob from:', blob.url);
+      const response = await fetch(blob.url);
+      console.log('Fetch response status:', response.status);
       const text = await response.text();
       const data = text ? JSON.parse(text) : null;
       console.log('Parsed event data:', data);
