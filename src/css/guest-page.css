@@ -1,0 +1,391 @@
+/* Guest Page - Dark Theme Consistent with App */
+
+/* ==================== Auth Container (RSVP Form) ==================== */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 2rem;
+  width: 100%;
+  background-color: #242424;
+}
+
+.auth-card {
+  background: #1a1a1a;
+  padding: 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.auth-title {
+  font-size: 2rem;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.auth-subtitle {
+  color: #999;
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+/* ==================== Form Elements ==================== */
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.auth-card label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #333;
+  color: white;
+  font-size: 1rem;
+  box-sizing: border-box;
+  margin-bottom: 1.5rem;
+}
+
+.auth-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #666;
+}
+
+.auth-input.mb-0 {
+  margin-bottom: 0;
+}
+
+/* ==================== Radio Buttons ==================== */
+.attending-options {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.attending-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: #ffffff;
+}
+
+.attending-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.attending-option span {
+  font-size: 0.9rem;
+}
+
+/* ==================== Family Count ==================== */
+.family-count {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.family-count-item {
+  flex: 1;
+}
+
+.family-count-item label {
+  font-size: 0.75rem;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ==================== Buttons ==================== */
+.btn-primary {
+  padding: 0.75rem 1.5rem;
+  background-color: #e50914;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  background-color: #f40612;
+}
+
+/* ==================== Dashboard ==================== */
+.guest-dashboard {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  width: 100%;
+  background-color: #242424;
+  box-sizing: border-box;
+}
+
+.dashboard-container {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.dashboard-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+  font-size: 2rem;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-header .welcome-text {
+  color: #64b5f6;
+  font-weight: 500;
+}
+
+.dashboard-header .attendance-status {
+  color: #999;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.dashboard-header .status-attending {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.dashboard-header .status-not-attending {
+  color: #e50914;
+  font-weight: bold;
+}
+
+.dashboard-header .status-not-sure {
+  color: #999;
+}
+
+/* ==================== Countdown Banner ==================== */
+.countdown-banner {
+  background-color: rgba(255, 152, 0, 0.1);
+  border: 2px solid #ff9800;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.countdown-banner .countdown-label {
+  color: #ff9800;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.countdown-banner .countdown-time {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #ff9800;
+  font-family: monospace;
+}
+
+.countdown-banner .countdown-note {
+  color: #ff9800;
+  font-size: 0.75rem;
+  margin-top: 1rem;
+  font-style: italic;
+}
+
+/* ==================== Live Banner ==================== */
+.live-banner {
+  background-color: #4caf50;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  color: white;
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 2rem;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* ==================== Menu Items ==================== */
+.menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.menu-section h3 {
+  font-weight: bold;
+  color: #ffffff;
+  font-size: 1.125rem;
+}
+
+.menu-item {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.menu-item.available {
+  background-color: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.menu-item.claimed {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  opacity: 0.6;
+}
+
+.menu-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.menu-item-label {
+  font-weight: bold;
+  color: #242424;
+}
+
+.menu-item-label.line-through {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.menu-item-claimer {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64b5f6;
+}
+
+/* ==================== Claim Button ==================== */
+.menu-item.my-claimed {
+  background-color: rgba(76, 175, 80, 0.1);
+  border-color: #4caf50;
+  box-shadow: 0 0 0 20px rgba(76, 175, 80, 0.3);
+}
+
+/* ==================== Claim Button ==================== */
+.claim-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.claim-button.enabled {
+  background-color: #4caf50;
+  color: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.claim-button.enabled:hover {
+  background-color: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.claim-button.enabled:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.claim-button.disabled {
+  background-color: #333;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.claim-button.disabled:hover {
+  background-color: #444;
+}
+
+/* ==================== Unclaim Button ==================== */
+.unclaim-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border: 2px solid #e50914;
+  background-color: transparent;
+  color: #e50914;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.unclaim-button:hover {
+  background-color: #e50914;
+  color: white;
+}
+
+.unclaim-button:active {
+  background-color: #f40612;
+  transform: scale(0.95);
+}
+
+/* ==================== Not Attending Message ==================== */
+.not-attending-message {
+  text-align: center;
+  padding: 2rem;
+}
+
+.not-attending-message p {
+  color: #999;
+}
+
+/* ==================== Responsive ==================== */
+@media (max-width: 639px) {
+  .auth-container {
+    padding: 1rem;
+  }
+
+  .auth-card {
+    padding: 1.5rem;
+  }
+
+  .family-count {
+    flex-direction: column;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .countdown-banner .countdown-time {
+    font-size: 2rem;
+  }
+}
