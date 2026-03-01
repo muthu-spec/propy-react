@@ -2,8 +2,6 @@
 // Uses Vercel Blob for persistent storage
 // One JSON file per eventId: potluck-event-{eventId}.json
 
-const { put, get, list, del } = require('@vercel/blob');
-
 // Helper to get event data for a specific event
 async function getEventData(eventId) {
   console.log('Getting event data for eventId:', eventId);
@@ -42,13 +40,22 @@ async function getEventData(eventId) {
 
 // Helper to save event data for a specific event
 async function saveEventData(eventId, eventData) {
-  console.log('Saving event data:', { eventId });
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const token = process.env.BLOB_READ_WRITE_TOKEN;
+      const prefix = `potluck-event-${eventId}-`;
 
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const prefix = `potluck-event-${eventId}-`;
+      // List and delete existing files with the same prefix
+      const { list, del, put } = await import('@vercel/blob');
+      const { blobs } = await list({
+        prefix,
+        token,
+      });
 
-    console.log('Listing blobs with prefix:', prefix);
+      // Delete all existing files for this event
+      for (const blob of blobs) {
+        await del(blob.pathname, { token });
+      }
 
     // List and delete existing files with the same prefix
     const { blobs } = await list({ prefix, token });
