@@ -73,62 +73,11 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     loadClaims();
   }, [eventId, eventData.menu]);
 
-  // Load this guest's claimed item from API
-  useEffect(() => {
-    const loadGuestClaim = async () => {
-      if (!guestName) {
-        setClaimedItemId(null);
-        return;
-      }
-
-      try {
-        const dbClaimedItemId = await claimsApi.getGuestClaimedItemId(eventId, guestName);
-        console.log('Guest claimed item loaded:', { guestName, claimedItemId: dbClaimedItemId });
-        setClaimedItemId(dbClaimedItemId);
-      } catch (error) {
-        console.error('Failed to load guest claim:', error);
-        setClaimedItemId(null);
-      }
-    };
-
-    loadGuestClaim();
-  }, [guestName, eventId]);
-
   // 2. Countdown State
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [isMenuLive, setIsMenuLive] = useState<boolean>(
     localStorage.getItem(getEventKey('menu_live')) === 'true'
   );
-
-  // Poll the API periodically to get updates from other users
-  useEffect(() => {
-    if (!isMenuLive) return;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const eventClaims = await claimsApi.getClaimsForEvent(eventId);
-
-        // Refresh menu state from API
-        setMenuState(prev => prev.map(item => {
-          const claim = eventClaims.find(c => c.itemId === item.id);
-          return {
-            ...item,
-            claimedBy: claim?.guestName
-          };
-        }));
-
-        // Sync this guest's claimedItemId
-        if (guestName) {
-          const dbClaimedItemId = await claimsApi.getGuestClaimedItemId(eventId, guestName);
-          setClaimedItemId(dbClaimedItemId);
-        }
-      } catch (error) {
-        console.error('Failed to poll claims:', error);
-      }
-    }, 3000); // Poll every 3 seconds
-
-    return () => clearInterval(pollInterval);
-  }, [eventId, guestName, isMenuLive]);
 
   useEffect(() => {
     // If menu is already live, don't start timer
