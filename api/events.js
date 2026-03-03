@@ -1,12 +1,7 @@
 // Vercel Serverless Function for Events API - Root Route (/api/events)
-// Uses Vercel Blob for persistent storage
+// Uses Supabase PostgreSQL for persistent storage
 
-import { put, list, del } from '@vercel/blob';
-
-// In-memory fallback for local development
-if (!globalThis.inMemoryEvents) {
-  globalThis.inMemoryEvents = {};
-}
+import { supabase } from './supabase.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -32,28 +27,21 @@ export default async function handler(req, res) {
       // GET /api/events - List all events
       console.log('Listing all events');
 
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const { blobs } = await list({
-          prefix: 'potluck-event-',
-          token,
-        });
-        console.log('All events blobs:', blobs.length);
-        // Handle GUID in filename: potluck-event-{eventId}-{guid}.json
-        return res.json(blobs.map(b => {
-          const filename = b.pathname.replace('potluck-event-', '').replace('.json', '');
-          // Extract eventId (part before dash/GUID)
-          const eventId = filename.split('-')[0];
-          return {
-            eventId,
-            uploadedAt: b.uploadedAt,
-            size: b.size,
-            pathname: b.pathname,
-          };
-        }));
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Failed to list events:', error);
+        return res.status(500).json({ error: 'Failed to list events', details: error.message });
       }
-      console.log('No BLOB_READ_WRITE_TOKEN, returning empty array');
-      return res.json([]);
+
+      console.log('All events:', data);
+      return res.json(data.map(event => ({
+        eventId: event.id,
+        uploadedAt: event.created_at,
+      })));
     }
 
     if (method === 'POST') {
@@ -68,46 +56,30 @@ export default async function handler(req, res) {
       }
 
       const eventData = {
-        eventId,
+        id: eventId,
         title,
         date,
         location,
         drop_time: drop_time || new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
         menu: menu || [],
         phone: phone || null,
-        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       };
 
       console.log('About to save event data:', eventData);
 
-      // Save event to blob
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        try {
-          const token = process.env.BLOB_READ_WRITE_TOKEN;
-          const pathname = `potluck-event-${eventId}-.json`;
+      const { data, error } = await supabase
+        .from('events')
+        .upsert(eventData)
+        .select();
 
-          console.log('Saving event to:', pathname);
-
-          await put(pathname, JSON.stringify(eventData), {
-            token,
-            contentType: 'application/json',
-            access: 'public',
-          });
-
-          console.log('Event saved successfully to:', pathname);
-        } catch (error) {
-          console.error('Failed to save event to blob:', error);
-          throw new Error(`Failed to save event to blob storage: ${error.message}`);
-        }
-      } else {
-        console.log('BLOB_READ_WRITE_TOKEN not set, using in-memory storage');
+      if (error) {
+        console.error('Failed to save event:', error);
+        return res.status(500).json({ error: 'Failed to save event', details: error.message });
       }
 
-      // Always update in-memory fallback (for local development)
-      globalThis.inMemoryEvents[eventId] = eventData;
-      console.log('Event saved to in-memory storage for:', eventId);
-
-      return res.status(201).json(eventData);
+      console.log('Event saved successfully:', data);
+      return res.status(201).json(data);
     }
 
     if (method === 'PUT') {
@@ -120,21 +92,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Event ID required' });
       }
 
-      // Get existing event data
-      let existingEvent = globalThis.inMemoryEvents[eventId];
-      if (!existingEvent && process.env.BLOB_READ_WRITE_TOKEN) {
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const prefix = `potluck-event-${eventId}-`;
-        const { blobs } = await list({ prefix, token });
+      // Get existing event
+      const { data: existingEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
 
-        if (blobs.length > 0) {
-          const response = await fetch(blobs[0].url);
-          const text = await response.text();
-          existingEvent = text ? JSON.parse(text) : null;
-        }
-      }
-
-      if (!existingEvent) {
+      if (fetchError || !existingEvent) {
+        console.error('Failed to fetch event:', fetchError);
         return res.status(404).json({ error: 'Event not found' });
       }
 
@@ -145,36 +111,32 @@ export default async function handler(req, res) {
         location: location || existingEvent.location,
         drop_time: drop_time || existingEvent.drop_time,
         menu: menu !== undefined ? menu : existingEvent.menu,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       console.log('About to save updated event data:', updatedEvent);
 
-      // Save event to blob
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        try {
-          const token = process.env.BLOB_READ_WRITE_TOKEN;
-          const pathname = `potluck-event-${eventId}-.json`;
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          title: updatedEvent.title,
+          date: updatedEvent.date,
+          location: updatedEvent.location,
+          drop_time: updatedEvent.drop_time,
+          menu: updatedEvent.menu,
+          updated_at: updatedEvent.updated_at,
+        })
+        .eq('id', eventId)
+        .select()
+        .single();
 
-          await put(pathname, JSON.stringify(updatedEvent), {
-            token,
-            contentType: 'application/json',
-            access: 'public',
-          });
-
-          console.log('Event updated successfully');
-        } catch (error) {
-          console.error('Failed to update event to blob:', error);
-          throw new Error(`Failed to update event to blob storage: ${error.message}`);
-        }
-      } else {
-        console.log('BLOB_READ_WRITE_TOKEN not set, using in-memory storage');
+      if (error) {
+        console.error('Failed to update event:', error);
+        return res.status(500).json({ error: 'Failed to update event', details: error.message });
       }
 
-      // Always update in-memory fallback
-      globalThis.inMemoryEvents[eventId] = updatedEvent;
-
-      return res.json(updatedEvent);
+      console.log('Event updated successfully:', data);
+      return res.json(data);
     }
 
     if (method === 'DELETE') {
@@ -187,27 +149,17 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Event ID required' });
       }
 
-      // Delete all blob files with event prefix (handles GUID suffix)
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-event-${eventId}-`;
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId);
 
-      if (token) {
-        console.log('Listing blobs to delete with prefix:', prefix);
-
-        const { blobs } = await list({ prefix, token });
-
-        console.log('Found blobs to delete:', blobs.length);
-
-        // Delete all matching files
-        for (const blob of blobs) {
-          console.log('Deleting blob:', blob.pathname);
-          await del(blob.pathname, { token });
-        }
+      if (error) {
+        console.error('Failed to delete event:', error);
+        return res.status(500).json({ error: 'Failed to delete event', details: error.message });
       }
 
-      // Clear from in-memory storage
-      delete globalThis.inMemoryEvents[eventId];
-
+      console.log('Event deleted successfully:', eventId);
       return res.json({ success: true });
     }
   } catch (error) {

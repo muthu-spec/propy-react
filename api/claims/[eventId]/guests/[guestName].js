@@ -1,49 +1,7 @@
 // Vercel Serverless Function for Claims API - Nested Route (/api/claims/:eventId/guests/:guestName)
-// Uses Vercel Blob for persistent storage
+// Uses Supabase PostgreSQL for persistent storage
 
-import { put, list, del } from '@vercel/blob';
-
-// In-memory fallback for local development
-if (!globalThis.inMemoryClaims) {
-  globalThis.inMemoryClaims = {};
-}
-
-// Helper to get claims for a specific event
-async function getClaimsForEvent(eventId) {
-  console.log('Getting claims for eventId:', eventId);
-
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const prefix = `potluck-claims-${eventId}-`;
-
-    console.log('Searching for blobs with prefix:', prefix);
-
-    // List all blobs with prefix (handles GUID suffix)
-    const { blobs } = await list({ prefix, token });
-
-    console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
-
-    // Get first matching blob (most recent)
-    if (blobs.length > 0) {
-      const blob = blobs[0];
-      console.log('Got blob:', blob.pathname);
-
-      // Fetch blob content using its URL
-      const downloadUrl = blob.downloadUrl || blob.url;
-      const response = await fetch(downloadUrl);
-      const text = await response.text();
-      const data = text ? JSON.parse(text) : [];
-      console.log('Parsed claims data:', data);
-      return data;
-    } else {
-      console.log('No blobs found for eventId:', eventId);
-    }
-  } else {
-    console.log('BLOB_READ_WRITE_TOKEN not set');
-  }
-  // Fallback to in-memory (for local development)
-  return globalThis.inMemoryClaims[eventId] || [];
-}
+import { supabase } from '../../../supabase.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -55,11 +13,18 @@ export default async function handler(req, res) {
   // Disable caching for real-time claims data
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
+  const eventId = req.query.eventId;
+  const guestName = req.query.guestName;
+
+  if (!eventId || !guestName) {
+    return res.status(400).json({ error: 'Event ID and guest name required' });
+  }
+
   console.log('[Claims API Nested - Guests] Request received:', {
     method: req.method,
     url: req.url,
-    eventId: req.query.eventId,
-    guestName: req.query.guestName,
+    eventId,
+    guestName,
   });
 
   if (req.method === 'OPTIONS') {
@@ -68,64 +33,46 @@ export default async function handler(req, res) {
     return;
   }
 
-  const eventId = req.query.eventId;
-  const guestName = req.query.guestName;
-
-  if (!eventId || !guestName) {
-    return res.status(400).json({ error: 'Event ID and guest name required' });
-  }
+  const method = req.method;
 
   try {
-    if (req.method === 'GET') {
+    if (method === 'GET') {
       // GET /api/claims/:eventId/guests/:guestName - Get claims by guest
       console.log('GET guest claims:', { eventId, guestName });
 
-      const claims = await getClaimsForEvent(eventId);
-      const guestClaims = claims.filter(c => c.eventId === eventId && c.guestName === guestName);
-      console.log('Guest claims found:', guestClaims);
-      return res.json(guestClaims);
+      const { data, error } = await supabase
+        .from('claims')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('guest_name', guestName)
+        .order('claim_time', { ascending: false });
+
+      if (error) {
+        console.error('Failed to get guest claims:', error);
+        return res.status(500).json({ error: 'Failed to get guest claims', details: error.message });
+      }
+
+      console.log('Guest claims found:', data);
+      return res.json(data || []);
     }
 
-    if (req.method === 'DELETE') {
+    if (method === 'DELETE') {
       // DELETE /api/claims/:eventId/guests/:guestName - Delete claims by guest
       console.log('DELETE guest claims:', { eventId, guestName });
 
-      // Get current claims
-      const currentClaims = await getClaimsForEvent(eventId);
-      const guestClaims = currentClaims.filter(c => c.eventId === eventId && c.guestName === guestName);
+      const { error } = await supabase
+        .from('claims')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('guest_name', guestName);
 
-      if (guestClaims.length === 0) {
-        return res.status(404).json({ error: 'No claims found for this guest' });
+      if (error) {
+        console.error('Failed to delete guest claims:', error);
+        return res.status(500).json({ error: 'Failed to delete guest claims', details: error.message });
       }
 
-      // Remove all guest claims
-      const updatedClaims = currentClaims.filter(c => c.eventId !== eventId || c.guestName !== guestName);
-
-      // Save updated claims
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        try {
-          const token = process.env.BLOB_READ_WRITE_TOKEN;
-          const pathname = `potluck-claims-${eventId}-${Date.now()}.json`;
-
-          await put(pathname, JSON.stringify(updatedClaims), {
-            token,
-            contentType: 'application/json',
-            access: 'public',
-          });
-
-          console.log('Guest claims removed successfully');
-        } catch (error) {
-          console.error('Failed to save claims to blob:', error);
-          throw new Error(`Failed to save claims to blob storage: ${error.message}`);
-        }
-      } else {
-        console.log('BLOB_READ_WRITE_TOKEN not set');
-      }
-
-      // Update in-memory fallback
-      globalThis.inMemoryClaims[eventId] = updatedClaims;
-
-      return res.json({ success: true, removedClaims: guestClaims.length });
+      console.log('Guest claims deleted successfully');
+      return res.json({ success: true });
     }
   } catch (error) {
     console.error('Claims API Error:', error);

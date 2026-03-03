@@ -1,61 +1,7 @@
 // Vercel Serverless Function for Claims API - Dynamic Route (/api/claims/:eventId)
-// Uses Vercel Blob for persistent storage
+// Uses Supabase PostgreSQL for persistent storage
 
-import { put, list, del } from '@vercel/blob';
-
-// In-memory fallback for local development
-if (!globalThis.inMemoryClaims) {
-  globalThis.inMemoryClaims = {};
-}
-
-// Helper to get claims for a specific event
-async function getClaimsForEvent(eventId) {
-  console.log('Getting claims for eventId:', eventId);
-
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const prefix = `potluck-claims-${eventId}-`;
-
-    console.log('Searching for blobs with prefix:', prefix);
-
-    // List all blobs with prefix (handles GUID suffix)
-    const { blobs } = await list({ prefix, token });
-
-    console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
-
-    // Get first matching blob (most recent)
-    if (blobs.length > 0) {
-      const blob = blobs[0];
-      console.log('Got blob:', blob.pathname);
-      console.log('Blob URL:', blob.url);
-      console.log('Blob downloadUrl:', blob.downloadUrl);
-
-      // Try different URL options
-      const downloadUrl = blob.downloadUrl || blob.url;
-      console.log('Fetching blob from:', downloadUrl);
-
-      const response = await fetch(downloadUrl);
-      console.log('Fetch response status:', response.status);
-      console.log('Fetch response ok:', response.ok);
-
-      if (!response.ok) {
-        console.error('Failed to fetch blob:', response.status, response.statusText);
-        return [];
-      }
-
-      const text = await response.text();
-      const data = text ? JSON.parse(text) : [];
-      console.log('Parsed claims data:', data);
-      return data;
-    } else {
-      console.log('No blobs found for eventId:', eventId);
-    }
-  } else {
-    console.log('BLOB_READ_WRITE_TOKEN not set');
-  }
-  // Fallback to in-memory (for local development)
-  return globalThis.inMemoryClaims[eventId] || [];
-}
+import { supabase } from '../../supabase.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -64,7 +10,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '3600');
 
-  // Disable caching for real-time claims data (critical to prevent duplicate claims)
+  // Disable caching for real-time claims data
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
   const eventId = req.query.eventId;
@@ -91,8 +37,18 @@ export default async function handler(req, res) {
     if (method === 'GET') {
       // GET /api/claims/:eventId - Get all claims for an event
       console.log('GET claims for event:', eventId);
-      const claims = await getClaimsForEvent(eventId);
-      return res.json(claims);
+      const { data, error } = await supabase
+        .from('claims')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('claim_time', { ascending: false });
+
+      if (error) {
+        console.error('Failed to get claims:', error);
+        return res.status(500).json({ error: 'Failed to get claims', details: error.message });
+      }
+
+      return res.json(data || []);
     }
 
     if (method === 'PUT') {
@@ -101,58 +57,50 @@ export default async function handler(req, res) {
 
       const { action, itemId } = req.body;
 
-      const currentClaims = await getClaimsForEvent(eventId);
+      const currentClaimsResult = await supabase
+        .from('claims')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('claim_time', { ascending: false });
+
+      const currentClaims = currentClaimsResult.data || [];
+
       console.log('Current claims before action:', currentClaims);
 
       // Clear all claims for an event
       if (action === 'clear') {
         console.log('Clearing all claims for event:', eventId);
 
-        // Delete all blob files for this event
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const prefix = `potluck-claims-${eventId}-`;
+        const { error } = await supabase
+          .from('claims')
+          .delete()
+          .eq('event_id', eventId);
 
-        if (token) {
-          const { blobs } = await list({ prefix, token });
-          for (const blob of blobs) {
-            await del(blob.pathname, { token });
-          }
+        if (error) {
+          console.error('Failed to clear claims:', error);
+          return res.status(500).json({ error: 'Failed to clear claims', details: error.message });
         }
 
-        globalThis.inMemoryClaims[eventId] = [];
+        console.log('Claims cleared successfully');
         return res.json({ success: true });
       }
 
       // Remove a specific claim
       if (action === 'remove' && itemId) {
-        const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
-        if (claimIndex === -1) {
-          console.log('Claim not found:', { eventId, itemId });
-          return res.status(404).json({ error: 'Claim not found' });
-        }
-        console.log('Removing claim at index:', claimIndex);
-        currentClaims.splice(claimIndex, 1);
+        console.log('Removing claim:', { eventId, itemId });
 
-        // Save updated claims
-        if (process.env.BLOB_READ_WRITE_TOKEN) {
-          try {
-            const token = process.env.BLOB_READ_WRITE_TOKEN;
-            const pathname = `potluck-claims-${eventId}-${Date.now()}.json`;
+        const { error } = await supabase
+          .from('claims')
+          .delete()
+          .eq('event_id', eventId)
+          .eq('item_id', itemId);
 
-            await put(pathname, JSON.stringify(currentClaims), {
-              token,
-              contentType: 'application/json',
-              access: 'public',
-            });
-
-            console.log('Claims saved successfully');
-          } catch (error) {
-            console.error('Failed to save claims to blob:', error);
-            throw new Error(`Failed to save claims to blob storage: ${error.message}`);
-          }
+        if (error) {
+          console.error('Failed to remove claim:', error);
+          return res.status(404).json({ error: 'Claim not found', details: error.message });
         }
 
-        globalThis.inMemoryClaims[eventId] = currentClaims;
+        console.log('Claim removed successfully');
         return res.json({ success: true });
       }
 
@@ -164,20 +112,17 @@ export default async function handler(req, res) {
       // DELETE /api/claims/:eventId - Delete all claims for an event
       console.log('Deleting all claims for event:', eventId);
 
-      // Delete all blob files for this event
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-claims-${eventId}-`;
+      const { error } = await supabase
+        .from('claims')
+        .delete()
+        .eq('event_id', eventId);
 
-      if (token) {
-        const { blobs } = await list({ prefix, token });
-        for (const blob of blobs) {
-          await del(blob.pathname, { token });
-        }
+      if (error) {
+        console.error('Failed to delete claims:', error);
+        return res.status(500).json({ error: 'Failed to delete claims', details: error.message });
       }
 
-      // Clear from in-memory storage
-      globalThis.inMemoryClaims[eventId] = [];
-
+      console.log('All claims deleted successfully');
       return res.json({ success: true });
     }
   } catch (error) {
