@@ -1,12 +1,7 @@
 // Vercel Serverless Function for Claims API - Root Route (/api/claims)
-// Uses Vercel Blob for persistent storage
+// Uses Supabase PostgreSQL for persistent storage
 
-import { put, list, del } from '@vercel/blob';
-
-// In-memory fallback for local development
-if (!globalThis.inMemoryClaims) {
-  globalThis.inMemoryClaims = {};
-}
+import { supabase } from './supabase.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -36,32 +31,22 @@ export default async function handler(req, res) {
       // GET /api/claims - List all event files
       console.log('Listing all claims events');
 
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const { blobs } = await list({
-          prefix: 'potluck-claims-',
-          token,
-        });
-        console.log('All claims blobs:', blobs.length);
-        // Handle GUID in filename: potluck-claims-{eventId}-{guid}.json
-        return res.json(blobs.map(b => {
-          const filename = b.pathname.replace('potluck-claims-', '').replace('.json', '');
-          // Extract eventId (part before dash/GUID)
-          const eventId = filename.split('-')[0];
-          return {
-            eventId,
-            uploadedAt: b.uploadedAt,
-            size: b.size,
-            pathname: b.pathname,
-          };
-        }));
+      // Get unique event IDs from claims
+      const { data, error } = await supabase
+        .from('claims')
+        .select('event_id');
+
+      if (error) {
+        console.error('Failed to list claims:', error);
+        return res.status(500).json({ error: 'Failed to list claims', details: error.message });
       }
-      // Fallback to in-memory events
-      const events = Object.keys(globalThis.inMemoryClaims || {}).map(eventId => ({
+
+      // Get event details for each unique event ID
+      const eventIds = [...new Set(data.map(c => c.event_id))];
+
+      return res.json(eventIds.map(eventId => ({
         eventId,
-        claimCount: (globalThis.inMemoryClaims[eventId] || []).length,
-      }));
-      return res.json(events);
+      })));
     }
 
     if (method === 'POST') {
@@ -75,74 +60,73 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
-      // Get current claims for this event
-      let currentClaims = globalThis.inMemoryClaims[eventId] || [];
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const prefix = `potluck-claims-${eventId}-`;
-        const { blobs } = await list({ prefix, token });
+      // Check if item is already claimed
+      const { data: existingClaims, error: checkError } = await supabase
+        .from('claims')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('item_id', itemId)
+        .maybeSingle();
 
-        if (blobs.length > 0) {
-          const response = await fetch(blobs[0].url);
-          const text = await response.text();
-          currentClaims = text ? JSON.parse(text) : [];
-        }
+      if (checkError) {
+        console.error('Failed to check existing claim:', checkError);
+        return res.status(500).json({ error: 'Failed to check existing claim', details: checkError.message });
       }
 
-      console.log('Current claims:', currentClaims);
-
-      // Check if item is already claimed
-      const existingClaim = currentClaims.find(c => c.eventId === eventId && c.itemId === itemId);
-      if (existingClaim) {
-        console.log('Item already claimed by:', existingClaim.guestName);
-        return res.status(409).json({ error: 'Item already claimed', claimedBy: existingClaim.guestName });
+      if (existingClaims) {
+        console.log('Item already claimed by:', existingClaims.guest_name);
+        return res.status(409).json({ error: 'Item already claimed', claimedBy: existingClaims.guest_name });
       }
 
       // Check if guest already claimed an item
-      const guestExistingClaim = currentClaims.find(c => c.eventId === eventId && c.guestName === guestName);
+      const { data: guestExistingClaim, error: guestCheckError } = await supabase
+        .from('claims')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('guest_name', guestName)
+        .maybeSingle();
+
+      if (guestCheckError) {
+        console.error('Failed to check guest existing claim:', guestCheckError);
+        return res.status(500).json({ error: 'Failed to check guest claim', details: guestCheckError.message });
+      }
+
       if (guestExistingClaim) {
-        console.log('Guest already claimed item:', guestExistingClaim.itemId);
-        return res.status(409).json({ error: 'Guest already claimed an item', itemId: guestExistingClaim.itemId });
+        console.log('Guest already claimed item:', guestExistingClaim.item_id);
+        return res.status(409).json({ error: 'Guest already claimed an item', itemId: guestExistingClaim.item_id });
       }
 
       const newClaim = {
-        eventId,
-        itemId,
-        guestName,
-        claimTime: new Date().toISOString()
+        event_id: eventId,
+        item_id: itemId,
+        guest_name: guestName,
+        claim_time: new Date().toISOString()
       };
 
       console.log('Creating new claim:', newClaim);
 
-      currentClaims.push(newClaim);
+      const { data, error } = await supabase
+        .from('claims')
+        .insert(newClaim)
+        .select()
+        .single();
 
-      // Save claims to blob
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        try {
-          const token = process.env.BLOB_READ_WRITE_TOKEN;
-          const pathname = `potluck-claims-${eventId}-${Date.now()}.json`;
-
-          console.log('Saving claims to:', pathname);
-
-          await put(pathname, JSON.stringify(currentClaims), {
-            token,
-            contentType: 'application/json',
-            access: 'public',
-          });
-
-          console.log('Claims saved successfully');
-        } catch (error) {
-          console.error('Failed to save claims to blob:', error);
-          throw new Error(`Failed to save claims to blob storage: ${error.message}`);
+      if (error) {
+        console.error('Failed to create claim:', error);
+        // Check for constraint violation (item already claimed)
+        if (error.code === '23505') {
+          console.log('Item already claimed (constraint violation)');
+          return res.status(409).json({ error: 'Item already claimed', claimedBy: guestName });
         }
-      } else {
-        console.log('BLOB_READ_WRITE_TOKEN not set');
+        if (error.code === '23503') {
+          console.log('Guest already claimed item (constraint violation)');
+          return res.status(409).json({ error: 'Guest already claimed an item', itemId });
+        }
+        return res.status(500).json({ error: 'Failed to create claim', details: error.message });
       }
 
-      // Always update in-memory fallback
-      globalThis.inMemoryClaims[eventId] = currentClaims;
-
-      return res.status(201).json(newClaim);
+      console.log('Claim created successfully:', data);
+      return res.status(201).json(data);
     }
 
     if (method === 'PUT') {
@@ -156,71 +140,40 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Event ID required' });
       }
 
-      // Get current claims for this event
-      let currentClaims = globalThis.inMemoryClaims[eventId] || [];
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const prefix = `potluck-claims-${eventId}-`;
-        const { blobs } = await list({ prefix, token });
-
-        if (blobs.length > 0) {
-          const response = await fetch(blobs[0].url);
-          const text = await response.text();
-          currentClaims = text ? JSON.parse(text) : [];
-        }
-      }
-
-      console.log('Current claims before action:', currentClaims);
-
       // Clear all claims for an event
       if (action === 'clear') {
         console.log('Clearing all claims for event:', eventId);
 
-        // Delete all blob files for this event
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const prefix = `potluck-claims-${eventId}-`;
+        const { error } = await supabase
+          .from('claims')
+          .delete()
+          .eq('event_id', eventId);
 
-        if (token) {
-          const { blobs } = await list({ prefix, token });
-          for (const blob of blobs) {
-            await del(blob.pathname, { token });
-          }
+        if (error) {
+          console.error('Failed to clear claims:', error);
+          return res.status(500).json({ error: 'Failed to clear claims', details: error.message });
         }
 
-        globalThis.inMemoryClaims[eventId] = [];
+        console.log('Claims cleared successfully');
         return res.json({ success: true });
       }
 
       // Remove a specific claim
       if (action === 'remove' && itemId) {
-        const claimIndex = currentClaims.findIndex(c => c.eventId === eventId && c.itemId === itemId);
-        if (claimIndex === -1) {
-          console.log('Claim not found:', { eventId, itemId });
-          return res.status(404).json({ error: 'Claim not found' });
-        }
-        console.log('Removing claim at index:', claimIndex);
-        currentClaims.splice(claimIndex, 1);
+        console.log('Removing claim:', { eventId, itemId });
 
-        // Save updated claims
-        if (process.env.BLOB_READ_WRITE_TOKEN) {
-          try {
-            const token = process.env.BLOB_READ_WRITE_TOKEN;
-            const pathname = `potluck-claims-${eventId}-${Date.now()}.json`;
+        const { error } = await supabase
+          .from('claims')
+          .delete()
+          .eq('event_id', eventId)
+          .eq('item_id', itemId);
 
-            await put(pathname, JSON.stringify(currentClaims), {
-              token,
-              contentType: 'application/json',
-              access: 'public',
-            });
-
-            console.log('Claims saved successfully');
-          } catch (error) {
-            console.error('Failed to save claims to blob:', error);
-            throw new Error(`Failed to save claims to blob storage: ${error.message}`);
-          }
+        if (error) {
+          console.error('Failed to remove claim:', error);
+          return res.status(404).json({ error: 'Claim not found', details: error.message });
         }
 
-        globalThis.inMemoryClaims[eventId] = currentClaims;
+        console.log('Claim removed successfully');
         return res.json({ success: true });
       }
 

@@ -1,70 +1,7 @@
 // Vercel Serverless Function for Events API - Dynamic Route (/api/events/:eventId)
-// Uses Vercel Blob for persistent storage
+// Uses Supabase PostgreSQL for persistent storage
 
-import { put, list, del } from '@vercel/blob';
-
-// In-memory fallback for local development
-if (!globalThis.inMemoryEvents) {
-  globalThis.inMemoryEvents = {};
-}
-
-// Helper to get event data for a specific event
-async function getEventData(eventId) {
-  console.log('Getting event data for eventId:', eventId);
-
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const prefix = `potluck-event-${eventId}-`;
-
-    console.log('Searching for blobs with prefix:', prefix);
-
-    // List all blobs with prefix (handles GUID suffix)
-    const { blobs } = await list({ prefix, token });
-
-    console.log('Found blobs:', blobs.length, blobs.map(b => b.pathname));
-
-    // Get first matching blob (most recent)
-    if (blobs.length > 0) {
-      const blob = blobs[0];
-      console.log('Got blob:', blob.pathname);
-      console.log('Blob URL:', blob.url);
-      console.log('Blob downloadUrl:', blob.downloadUrl);
-
-      // Try different URL options
-      const downloadUrl = blob.downloadUrl || blob.url;
-      console.log('Fetching blob from:', downloadUrl);
-
-      const response = await fetch(downloadUrl);
-      console.log('Fetch response status:', response.status);
-      console.log('Fetch response ok:', response.ok);
-
-      if (!response.ok) {
-        console.error('Failed to fetch blob:', response.status, response.statusText);
-        return null;
-      }
-
-      const text = await response.text();
-      const data = text ? JSON.parse(text) : null;
-      console.log('Parsed event data:', data);
-      return data;
-    } else {
-      console.log('No blobs found for eventId:', eventId);
-    }
-  } else {
-    console.log('BLOB_READ_WRITE_TOKEN not set');
-  }
-
-  // Fallback to in-memory storage (for local development)
-  console.log('Checking in-memory storage for:', eventId);
-  const inMemoryEvent = globalThis.inMemoryEvents[eventId];
-  if (inMemoryEvent) {
-    console.log('Found event in in-memory storage:', eventId);
-    return inMemoryEvent;
-  }
-
-  console.log('Event not found in in-memory storage:', eventId);
-  return null;
-}
+import { supabase } from '../supabase.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -96,12 +33,18 @@ export default async function handler(req, res) {
     if (method === 'GET') {
       // GET /api/events/:eventId - Get a specific event
       console.log('Getting event for eventId:', eventId);
-      const eventData = await getEventData(eventId);
-      if (!eventData) {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+      if (error || !data) {
         console.log('Event not found for eventId:', eventId);
         return res.status(404).json({ error: 'Event not found' });
       }
-      return res.json(eventData);
+      console.log('Event found:', data);
+      return res.json(data);
     }
 
     if (method === 'PUT') {
@@ -110,8 +53,14 @@ export default async function handler(req, res) {
 
       const { title, date, location, drop_time, menu } = req.body;
 
-      const existingEvent = await getEventData(eventId);
-      if (!existingEvent) {
+      // Get existing event
+      const { data: existingEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+      if (fetchError || !existingEvent) {
         return res.status(404).json({ error: 'Event not found' });
       }
 
@@ -122,63 +71,49 @@ export default async function handler(req, res) {
         location: location || existingEvent.location,
         drop_time: drop_time || existingEvent.drop_time,
         menu: menu !== undefined ? menu : existingEvent.menu,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       console.log('About to save updated event data:', updatedEvent);
 
-      // Save event to blob
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
-        try {
-          const token = process.env.BLOB_READ_WRITE_TOKEN;
-          const pathname = `potluck-event-${eventId}-.json`;
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          title: updatedEvent.title,
+          date: updatedEvent.date,
+          location: updatedEvent.location,
+          drop_time: updatedEvent.drop_time,
+          menu: updatedEvent.menu,
+          updated_at: updatedEvent.updated_at,
+        })
+        .eq('id', eventId)
+        .select()
+        .single();
 
-          await put(pathname, JSON.stringify(updatedEvent), {
-            token,
-            contentType: 'application/json',
-            access: 'public',
-          });
-
-          console.log('Event updated successfully');
-        } catch (error) {
-          console.error('Failed to update event to blob:', error);
-          throw new Error(`Failed to update event to blob storage: ${error.message}`);
-        }
-      } else {
-        console.log('BLOB_READ_WRITE_TOKEN not set, using in-memory storage');
+      if (error) {
+        console.error('Failed to update event:', error);
+        return res.status(500).json({ error: 'Failed to update event', details: error.message });
       }
 
-      // Always update in-memory fallback
-      globalThis.inMemoryEvents[eventId] = updatedEvent;
-
-      return res.json(updatedEvent);
+      console.log('Event updated successfully:', data);
+      return res.json(data);
     }
 
     if (method === 'DELETE') {
       // DELETE /api/events/:eventId - Delete a specific event
       console.log('Deleting event:', eventId);
 
-      // Delete all blob files with event prefix (handles GUID suffix)
-      const token = process.env.BLOB_READ_WRITE_TOKEN;
-      const prefix = `potluck-event-${eventId}-`;
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', eventId);
 
-      if (token) {
-        console.log('Listing blobs to delete with prefix:', prefix);
-
-        const { blobs } = await list({ prefix, token });
-
-        console.log('Found blobs to delete:', blobs.length);
-
-        // Delete all matching files
-        for (const blob of blobs) {
-          console.log('Deleting blob:', blob.pathname);
-          await del(blob.pathname, { token });
-        }
+      if (error) {
+        console.error('Failed to delete event:', error);
+        return res.status(500).json({ error: 'Failed to delete event', details: error.message });
       }
 
-      // Clear from in-memory storage
-      delete globalThis.inMemoryEvents[eventId];
-
+      console.log('Event deleted successfully:', eventId);
       return res.json({ success: true });
     }
   } catch (error) {
