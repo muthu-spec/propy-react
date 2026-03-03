@@ -55,10 +55,10 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
 
       {/* Magic Link Section */}
       <div className="magic-link-section">
-        <h3>Guest Magic Link</h3>
+        <h3 className="magic-link-highlight">Guest Magic Link</h3>
         <div className="magic-link-wrapper">
           <div className="magic-link-display">{magicLink}</div>
-          <button onClick={onCopyLink} className="copy-button" title="Copy Link">
+          <button onClick={onCopyLink} className="copy-icon-button" title="Copy Link">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1Z"
@@ -69,7 +69,6 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
                 fill="currentColor"
               />
             </svg>
-            <span>Copy Link</span>
           </button>
         </div>
         <p className="link-helper-text">

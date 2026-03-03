@@ -440,6 +440,15 @@
   font-weight: 500;
 }
 
+.magic-link-highlight {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 152, 0, 0.1) 100%);
+  color: #ffb74d;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border-left: 3px solid #ffb74d;
+  font-weight: 600;
+}
+
 .magic-link-wrapper {
   display: flex;
   align-items: center;
@@ -485,6 +494,33 @@
 .copy-button svg {
   width: 18px;
   height: 18px;
+}
+
+/* Copy Icon Button - icon only */
+.copy-icon-button {
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.875rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  width: 44px;
+  height: 44px;
+}
+
+.copy-icon-button:hover {
+  background-color: #1976d2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+.copy-icon-button svg {
+  width: 20px;
+  height: 20px;
 }
 
 .link-helper-text {
@@ -587,9 +623,9 @@
 }
 
 .create-another-button {
-  background-color: transparent;
-  color: #999;
-  border: 1px solid #333;
+  background-color: rgba(33, 150, 243, 0.1);
+  color: #64b5f6;
+  border: 1px solid rgba(33, 150, 243, 0.3);
   border-radius: 6px;
   padding: 0.875rem 1.5rem;
   cursor: pointer;
@@ -600,9 +636,9 @@
 }
 
 .create-another-button:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  color: #ffffff;
-  border-color: #555;
+  background-color: rgba(33, 150, 243, 0.2);
+  color: #64b5f6;
+  border-color: rgba(33, 150, 243, 0.5);
 }
 
 /* Responsive Styles */
