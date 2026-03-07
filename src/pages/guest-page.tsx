@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, type ChangeEvent } from 'react';
 import '../css/guest-page.css';
 import claimsApi from '../services/claims-api';
+import rsvpsApi from '../services/rsvps-api';
+import guestMenuLiveApi from '../services/guest-menu-live-api';
 
 // Types
 interface MenuItem {
@@ -28,21 +30,14 @@ interface FamilyCount {
 }
 
 const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
-  // Generate event-specific localStorage keys
-  const getEventKey = (key: string) => `potluck_${key}_${eventId}`;
-
-  // 1. Identify User from LocalStorage
-  const [guestName, setGuestName] = useState<string>(localStorage.getItem(getEventKey('name')) || '');
-  const [isRegistered, setIsRegistered] = useState<boolean>(!!localStorage.getItem(getEventKey('name')));
-  const [familyCount, setFamilyCount] = useState<FamilyCount>(
-    {
-      adults: parseInt(localStorage.getItem(getEventKey('adults')) || '2'),
-      kids: parseInt(localStorage.getItem(getEventKey('kids')) || '0')
-    }
-  );
-  const [isAttending, setIsAttending] = useState<string | null>(
-    localStorage.getItem(getEventKey('attending')) || null
-  ); // null, 'Yes', 'No', 'not-sure'
+  // 1. RSVP State (loaded from Supabase)
+  const [guestName, setGuestName] = useState<string>('');
+  const [isRegistered, setIsRegistered] = useState<boolean>(false);
+  const [familyCount, setFamilyCount] = useState<FamilyCount>({
+    adults: 2,
+    kids: 0
+  });
+  const [isAttending, setIsAttending] = useState<'Yes' | 'No' | 'not-sure'>('not-sure');
 
   // Track which item this guest has claimed (from API)
   const [claimedItemId, setClaimedItemId] = useState<string | null>(null);
@@ -52,6 +47,45 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
 
   // Track if claims have been loaded to prevent duplicate API calls
   const claimsLoadedRef = useRef<Set<string>>(new Set());
+
+  // 2. Countdown State (loaded from Supabase)
+  const [timeLeft, setTimeLeft] = useState<string>("");
+  const [isMenuLive, setIsMenuLive] = useState<boolean>(false);
+
+  // Load RSVP from Supabase on component mount
+  useEffect(() => {
+    const loadRSVPFromSupabase = async () => {
+      try {
+        // Get all RSVPs for this event
+        const allRSVPs = await rsvpsApi.getAllRSVPsForEvent(eventId);
+        console.log('Loaded RSVPs from Supabase:', allRSVPs);
+
+        // For now, we don't pre-populate the form
+        // Users will need to RSVP again to create their record in Supabase
+      } catch (error) {
+        console.error('Failed to load RSVPs from Supabase:', error);
+      }
+    };
+
+    loadRSVPFromSupabase();
+  }, [eventId]);
+
+  // Load menu live status from Supabase on component mount
+  useEffect(() => {
+    const loadMenuLiveStatus = async () => {
+      try {
+        const menuLiveStatus = await guestMenuLiveApi.getMenuLiveStatus(eventId);
+        console.log('Loaded menu live status from Supabase:', menuLiveStatus);
+        if (menuLiveStatus) {
+          setIsMenuLive(menuLiveStatus.is_live);
+        }
+      } catch (error) {
+        console.error('Failed to load menu live status:', error);
+      }
+    };
+
+    loadMenuLiveStatus();
+  }, [eventId]);
 
   // Load event claims and menu state on mount
   useEffect(() => {
@@ -80,14 +114,9 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     if (!claimsLoadedRef.current.has(eventId)) {
       loadClaims();
     }
-  }, [eventId]);
+  }, [eventData.menu, eventId]);
 
-  // 2. Countdown State
-  const [timeLeft, setTimeLeft] = useState<string>("");
-  const [isMenuLive, setIsMenuLive] = useState<boolean>(
-    localStorage.getItem(getEventKey('menu_live')) === 'true'
-  );
-
+  // Countdown timer
   useEffect(() => {
     // If menu is already live, don't start timer
     if (isMenuLive) return;
@@ -98,8 +127,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
 
       if (distance < 0) {
         setIsMenuLive(true);
-        localStorage.setItem(getEventKey('menu_live'), 'true');
         clearInterval(timer);
+        // Sync to Supabase
+        guestMenuLiveApi.setMenuLiveStatus(eventId, true)
+          .catch(error => console.error('Failed to sync menu live status:', error));
       } else {
         const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
@@ -108,16 +139,42 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [eventData.drop_time, isMenuLive]);
+  }, [eventData.drop_time, eventId, isMenuLive]);
 
-  const handleRSVP = (e: { preventDefault: () => void }) => {
+  const handleRSVP = async (e: {
+    currentTarget: HTMLFormElement; preventDefault: () => void 
+}) => {
     e.preventDefault();
-    localStorage.setItem(getEventKey('name'), guestName);
-    localStorage.setItem(getEventKey('attending'), isAttending || 'not-sure');
-    localStorage.setItem(getEventKey('adults'), familyCount.adults.toString());
-    localStorage.setItem(getEventKey('kids'), familyCount.kids.toString());
+
+    const newGuestName = guestName.trim();
+    // Get the actual attending value from form (not from state)
+    const form = e.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    // Cast to union type explicitly to avoid TypeScript error
+    const newAttending = (formData.get('attending') as string) as 'Yes' | 'No' | 'not-sure' | null;
+
+    if (!newGuestName || !newAttending) {
+      alert('Please enter your name and select attendance status.');
+      return;
+    }
+
+    // Save to Supabase (not localStorage)
+    try {
+      await rsvpsApi.createOrUpdateRSVP({
+        eventId,
+        guestName: newGuestName,
+        attending: newAttending,
+        adults: familyCount.adults,
+        kids: familyCount.kids,
+      });
+      console.log('RSVP saved to Supabase');
+    } catch (error) {
+      console.error('Failed to save RSVP to Supabase:', error);
+      alert('Failed to save RSVP. Please try again.');
+      return;
+    }
+
     setIsRegistered(true);
-    // Logic: Update database with RSVP info
   };
 
   const handleClaim = async (itemId: string) => {
@@ -216,7 +273,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
                 name="attending"
                 value="Yes"
                 checked={isAttending === 'Yes'}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setIsAttending(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  setIsAttending(value === 'Yes' ? 'Yes' : value === 'No' ? 'No' : 'not-sure');
+                }}
               />
               <span>Yes</span>
             </label>
@@ -226,7 +286,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
                 name="attending"
                 value="No"
                 checked={isAttending === 'No'}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setIsAttending(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  setIsAttending(value === 'Yes' ? 'Yes' : value === 'No' ? 'No' : 'not-sure');
+                }}
               />
               <span>No</span>
             </label>
@@ -236,7 +299,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
                 name="attending"
                 value="not-sure"
                 checked={isAttending === 'not-sure'}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setIsAttending(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  setIsAttending(value === 'Yes' ? 'Yes' : value === 'No' ? 'No' : 'not-sure');
+                }}
               />
               <span>Not sure yet</span>
             </label>
@@ -277,8 +343,8 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
       <div className="dashboard-container">
         <header className="dashboard-header">
           <h1>{eventData.title}</h1>
-          <p className="welcome-text">Welcome back, {guestName}!</p>
-          {isAttending && (
+          <p className="welcome-text">Welcome back, {guestName || 'Guest'}!</p>
+          {isRegistered && isAttending && (
             <p className="attendance-status">
               Status: <span className={
                 isAttending === 'Yes' ? 'status-attending' :
