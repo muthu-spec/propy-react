@@ -15,11 +15,20 @@ export interface RSVP {
   updatedAt?: string;
 }
 
+export interface RSVPResponse {
+  guestName: string;
+  attending: 'Yes' | 'No' | 'not-sure';
+  adults: number;
+  kids: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const rsvpsApi = {
   // Get RSVP for a specific event and guest
-  async getRSVP(eventId: string, guestName: string): Promise<RSVP | null> {
+  async getRSVP(eventId: string, guestName: string): Promise<RSVPResponse | null> {
     try {
-      const response = await fetch(`${API_BASE_URL}/rsvps/${encodeURIComponent(guestName)}`);
+      const response = await fetch(`${API_BASE_URL}/rsvps/${encodeURIComponent(eventId)}/guests/${encodeURIComponent(guestName)}`);
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to fetch RSVP');
@@ -69,7 +78,7 @@ const rsvpsApi = {
 
   // Delete an RSVP
   async deleteRSVP(eventId: string, guestName: string): Promise<{ success: boolean }> {
-    const response = await fetch(`${API_BASE_URL}/rsvps/${encodeURIComponent(guestName)}`, {
+    const response = await fetch(`${API_BASE_URL}/rsvps/${encodeURIComponent(eventId)}/guests/${encodeURIComponent(guestName)}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
