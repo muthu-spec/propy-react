@@ -23,6 +23,11 @@ export default async function handler(req, res) {
     method: req.method,
     url: req.url,
     eventId,
+    envCheck: {
+      hasSupabaseUrl: !!process.env.SUPABASE_URL,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasAnonKey: !!process.env.SUPABASE_ANON_KEY,
+    },
   });
 
   if (req.method === 'OPTIONS') {
@@ -34,6 +39,12 @@ export default async function handler(req, res) {
   const method = req.method;
 
   try {
+    // Check if Supabase is properly initialized
+    if (!supabase) {
+      console.error('Supabase client not initialized');
+      return res.status(500).json({ error: 'Database connection failed - check environment variables' });
+    }
+
     if (method === 'GET') {
       // GET /api/guest-menu-live/:eventId - Get menu live status for an event
       console.log('GET menu live status for event:', eventId);
@@ -62,7 +73,18 @@ export default async function handler(req, res) {
       // POST /api/guest-menu-live/:eventId - Create or update menu live status
       console.log('POST request body:', req.body);
 
-      const { isLive } = req.body;
+      // Parse JSON body if not already parsed
+      let body = req.body;
+      if (typeof req.body === 'string') {
+        try {
+          body = JSON.parse(req.body);
+        } catch (e) {
+          console.error('Failed to parse request body:', e);
+          return res.status(400).json({ error: 'Invalid JSON in request body' });
+        }
+      }
+
+      const { isLive } = body;
 
       if (typeof isLive !== 'boolean') {
         console.log('Invalid isLive value');
