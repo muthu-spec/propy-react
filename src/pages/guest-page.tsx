@@ -141,11 +141,17 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     return () => clearInterval(timer);
   }, [eventData.drop_time, eventId, isMenuLive]);
 
-  const handleRSVP = async (e: { preventDefault: () => void }) => {
+  const handleRSVP = async (e: {
+    currentTarget: HTMLFormElement; preventDefault: () => void 
+}) => {
     e.preventDefault();
 
     const newGuestName = guestName.trim();
-    const newAttending = isAttending;
+    // Get the actual attending value from form (not from state)
+    const form = e.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    // Cast to union type explicitly to avoid TypeScript error
+    const newAttending = (formData.get('attending') as string) as 'Yes' | 'No' | 'not-sure' | null;
 
     if (!newGuestName || !newAttending) {
       alert('Please enter your name and select attendance status.');
@@ -267,7 +273,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
                 name="attending"
                 value="Yes"
                 checked={isAttending === 'Yes'}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setIsAttending(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  setIsAttending(value === 'Yes' ? 'Yes' : value === 'No' ? 'No' : 'not-sure');
+                }}
               />
               <span>Yes</span>
             </label>
@@ -277,7 +286,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
                 name="attending"
                 value="No"
                 checked={isAttending === 'No'}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setIsAttending(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  setIsAttending(value === 'Yes' ? 'Yes' : value === 'No' ? 'No' : 'not-sure');
+                }}
               />
               <span>No</span>
             </label>
@@ -287,7 +299,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
                 name="attending"
                 value="not-sure"
                 checked={isAttending === 'not-sure'}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setIsAttending(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  setIsAttending(value === 'Yes' ? 'Yes' : value === 'No' ? 'No' : 'not-sure');
+                }}
               />
               <span>Not sure yet</span>
             </label>
