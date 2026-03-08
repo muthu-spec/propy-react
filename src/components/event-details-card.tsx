@@ -8,8 +8,8 @@ interface MenuItem {
 interface EventDetailsCardProps {
   title: string;
   date: string;
-  location: string;
-  drop_time: string;
+  eventLocation: string;
+  drop_time?: string;
   menuItems: MenuItem[];
   magicLink: string;
   onCopyLink: () => void;
@@ -19,14 +19,15 @@ interface EventDetailsCardProps {
 export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
   title,
   date,
-  location,
+  eventLocation,
   drop_time,
   menuItems,
   magicLink,
   onCopyLink,
   onCreateAnother,
 }) => {
-  const formatDateTime = (isoString: string) => {
+  const formatDateTime = (isoString: string | undefined) => {
+    if (!isoString) return 'Not set';
     return new Date(isoString).toLocaleString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -90,12 +91,14 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
           </div>
           <div className="detail-item">
             <div className="detail-label">Location</div>
-            <div className="detail-value">{location}</div>
+            <div className="detail-value">{eventLocation}</div>
           </div>
-          <div className="detail-item">
-            <div className="detail-label">Menu Drop Time</div>
-            <div className="detail-value">{formatDateTime(drop_time)}</div>
-          </div>
+          {drop_time && (
+            <div className="detail-item">
+              <div className="detail-label">Menu Drop Time</div>
+              <div className="detail-value">{formatDateTime(drop_time)}</div>
+            </div>
+          )}
         </div>
 
         {/* Menu Items Preview */}

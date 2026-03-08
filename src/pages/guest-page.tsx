@@ -409,8 +409,8 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
           </div>
         )}
 
-        {/* The Menu Countdown (only for potluck events) */}
-        {eventData.event_type === 'potluck' && (
+        {/* The Menu Countdown (only for potluck events with drop_time set) */}
+        {eventData.event_type === 'potluck' && eventData.drop_time && (
           <>
             {!isMenuLive ? (
               <div className="countdown-banner">
