@@ -15,8 +15,10 @@ interface EventData {
   title: string;
   date: string;
   location: string;
-  drop_time: string;
+  drop_time?: string;
   menu: MenuItem[];
+  event_type: 'potluck' | 'birthday';
+  rsvp_deadline?: string;
 }
 
 interface GuestPageProps {
@@ -51,6 +53,10 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
   // 2. Countdown State (loaded from Supabase)
   const [timeLeft, setTimeLeft] = useState<string>("");
   const [isMenuLive, setIsMenuLive] = useState<boolean>(false);
+
+  // RSVP Deadline countdown state
+  const [rsvpTimeLeft, setRsvpTimeLeft] = useState<string>("");
+  const [rsvpDeadlinePassed, setRsvpDeadlinePassed] = useState<boolean>(false);
 
   // Load RSVP from Supabase on component mount
   useEffect(() => {
@@ -87,6 +93,35 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     loadMenuLiveStatus();
   }, [eventId]);
 
+  // RSVP Deadline countdown
+  useEffect(() => {
+    if (!eventData.rsvp_deadline) return;
+
+    const timer = setInterval(() => {
+      const now = new Date().getTime();
+      const deadline = new Date(eventData.rsvp_deadline!).getTime();
+      const distance = deadline - now;
+
+      if (distance < 0) {
+        setRsvpDeadlinePassed(true);
+        setRsvpTimeLeft("Deadline passed");
+        clearInterval(timer);
+      } else {
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        if (days > 0) {
+          setRsvpTimeLeft(`${days}d ${hours}h ${minutes}m`);
+        } else {
+          setRsvpTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+        }
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [eventData.rsvp_deadline]);
+
   // Load event claims and menu state on mount
   useEffect(() => {
     const loadClaims = async () => {
@@ -119,11 +154,11 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
   // Countdown timer
   useEffect(() => {
     // If menu is already live, don't start timer
-    if (isMenuLive) return;
+    if (isMenuLive || !eventData.drop_time) return;
 
     const timer = setInterval(() => {
       const now = new Date().getTime();
-      const distance = new Date(eventData.drop_time).getTime() - now;
+      const distance = new Date(eventData.drop_time!).getTime() - now;
 
       if (distance < 0) {
         setIsMenuLive(true);
@@ -342,7 +377,12 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
     <div className="guest-dashboard">
       <div className="dashboard-container">
         <header className="dashboard-header">
-          <h1>{eventData.title}</h1>
+          <div className="event-title-row">
+            <h1>{eventData.title}</h1>
+            <span className={`event-type-badge ${eventData.event_type}`}>
+              {eventData.event_type === 'potluck' ? '🍽 Potluck' : '🎂 Birthday'}
+            </span>
+          </div>
           <p className="welcome-text">Welcome back, {guestName || 'Guest'}!</p>
           {isRegistered && isAttending && (
             <p className="attendance-status">
@@ -360,21 +400,34 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
           )}
         </header>
 
-        {/* The Fairness Countdown */}
-        {!isMenuLive ? (
-          <div className="countdown-banner">
-            <p className="countdown-label">Menu Drops In:</p>
-            <p className="countdown-time">{timeLeft}</p>
-            <p className="countdown-note">Get ready! Items are first-come, first-served.</p>
-          </div>
-        ) : (
-          <div className="live-banner">
-            🚀 The Menu is LIVE! Claim your items!
+        {/* RSVP Deadline Countdown */}
+        {eventData.rsvp_deadline && !rsvpDeadlinePassed && (
+          <div className="rsvp-deadline-banner">
+            <p className="rsvp-deadline-label">RSVP Deadline:</p>
+            <p className="rsvp-deadline-time">{rsvpTimeLeft}</p>
+            <p className="rsvp-deadline-note">Please RSVP by this date</p>
           </div>
         )}
 
-        {/* Menu Items */}
-        {isAttending === 'Yes' ? (
+        {/* The Menu Countdown (only for potluck events) */}
+        {eventData.event_type === 'potluck' && (
+          <>
+            {!isMenuLive ? (
+              <div className="countdown-banner">
+                <p className="countdown-label">Menu Drops In:</p>
+                <p className="countdown-time">{timeLeft}</p>
+                <p className="countdown-note">Get ready! Items are first-come, first-served.</p>
+              </div>
+            ) : (
+              <div className="live-banner">
+                🚀 The Menu is LIVE! Claim your items!
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Menu Items (only for potluck events with menu) */}
+        {eventData.event_type === 'potluck' && isAttending === 'Yes' ? (
           <div className="menu-section">
             <h3>Potluck Menu</h3>
             {menuState.map(item => {
@@ -424,9 +477,22 @@ const GuestPage: React.FC<GuestPageProps> = ({ eventData, eventId }) => {
         ) : (
           <div className="not-attending-message">
             <p>
-              {isAttending === 'No'
-                ? "Since you're not attending, you won't be able to claim menu items."
-                : "Please confirm your attendance to access menu and claim items."}
+              {eventData.event_type === 'potluck'
+                ? (isAttending === 'No'
+                    ? "Since you're not attending, you won't be able to claim menu items."
+                    : "Please confirm your attendance to access menu and claim items.")
+                : "Please confirm your attendance."}
+            </p>
+          </div>
+        )}
+
+        {/* Menu Coming Soon Message */}
+        {eventData.event_type === 'potluck' && isAttending === 'Yes' && menuState.length === 0 && (
+          <div className="menu-coming-soon-message">
+            <p>
+              {isMenuLive
+                ? "Menu items are being finalized. Check back soon!"
+                : "Menu items will be available after the RSVP deadline. Check back soon!"}
             </p>
           </div>
         )}
