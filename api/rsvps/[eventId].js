@@ -1,7 +1,7 @@
 // Vercel Serverless Function for RSVPs API - Dynamic Route (/api/rsvps/:eventId)
 // Uses Supabase PostgreSQL for persistent storage
 
-import { supabase } from '../../supabase.js';
+import { supabase } from '../supabase.js';
 
 export default async function handler(req, res) {
   // Enable CORS
