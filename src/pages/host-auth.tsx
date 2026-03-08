@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../css/host-auth.css';
 import eventsApi from '../services/events-api';
 import { EventDetailsCard } from '../components/event-details-card';
@@ -9,6 +10,8 @@ interface MenuItem {
 }
 
 export const HostAuthSystem = () => {
+  const navigate = useNavigate();
+
   // Auth State
   const [step, setStep] = useState('phone'); // 'phone', 'otp', 'dashboard', 'event-details'
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -130,7 +133,7 @@ export const HostAuthSystem = () => {
     <div className="host-layout">
         <div className="host-auth-card">
             <form onSubmit={handleSendOtp} className="host-login-form">
-                <h2>Host Login</h2>
+                <h2>Login</h2>
                 <div className='input-group'>
                 <label htmlFor="phone-number">Phone Number</label>
                     <input
@@ -178,7 +181,7 @@ export const HostAuthSystem = () => {
 
   if (step === 'dashboard') return (
     <div className="host-dashboard">
-      <h1>Host Dashboard</h1>
+      <h1>Dashboard</h1>
 
       {!magicLink ? (
         <form onSubmit={createEvent} className="event-form">
@@ -358,6 +361,7 @@ export const HostAuthSystem = () => {
           menuItems={menuItems}
           magicLink={magicLink}
           onCopyLink={() => navigator.clipboard.writeText(magicLink)}
+          onGoToDashboard={() => navigate('/dashboard')}
           onCreateAnother={() => {
             setMagicLink('');
             setEventDetails({

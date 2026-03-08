@@ -14,6 +14,7 @@ interface EventDetailsCardProps {
   magicLink: string;
   onCopyLink: () => void;
   onCreateAnother: () => void;
+  onGoToDashboard?: () => void;
 }
 
 export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
@@ -25,6 +26,7 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
   magicLink,
   onCopyLink,
   onCreateAnother,
+  onGoToDashboard,
 }) => {
   const formatDateTime = (isoString: string | undefined) => {
     if (!isoString) return 'Not set';
@@ -51,7 +53,7 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
           </svg>
         </div>
         <h2>Event Created Successfully!</h2>
-        <p>Your potluck event is ready. Share the magic link with your guests.</p>
+        <p>Your event is ready. Share the magic link with your guests.</p>
       </div>
 
       {/* Magic Link Section */}
@@ -73,7 +75,7 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
           </button>
         </div>
         <p className="link-helper-text">
-          Guests can use this link to RSVP and claim menu items
+          Guests can use this link to RSVP
         </p>
       </div>
 
@@ -119,6 +121,11 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
 
       {/* Action Buttons */}
       <div className="action-buttons">
+        {onGoToDashboard && (
+          <button onClick={onGoToDashboard} className="dashboard-button">
+            Go to Dashboard
+          </button>
+        )}
         <button onClick={onCreateAnother} className="create-another-button">
           Create Another Event
         </button>
