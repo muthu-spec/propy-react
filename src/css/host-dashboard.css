@@ -1,0 +1,372 @@
+/* Host Dashboard - Dark Theme Consistent with App */
+
+.host-dashboard {
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  width: 100%;
+  background-color: #242424;
+  box-sizing: border-box;
+}
+
+.dashboard-container {
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+/* ==================== Dashboard Header ==================== */
+.dashboard-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+  font-size: 2.5rem;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.dashboard-subtitle {
+  color: #999;
+  font-size: 1.1rem;
+}
+
+/* ==================== Events List ==================== */
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.event-card {
+  background: #1a1a1a;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.event-info {
+  flex: 1;
+}
+
+.event-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.event-header h3 {
+  font-size: 1.25rem;
+  color: #ffffff;
+  margin: 0;
+}
+
+.event-type-badge {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.event-type-badge.potluck {
+  background-color: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.event-type-badge.birthday {
+  background-color: rgba(233, 30, 99, 0.2);
+  color: #e91e63;
+}
+
+.event-date,
+.event-location,
+.event-deadline {
+  color: #999;
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.event-deadline {
+  font-style: italic;
+  color: #64b5f6;
+}
+
+.menu-status {
+  margin-top: 0.5rem;
+}
+
+.incomplete-badge {
+  color: #e50914;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.complete-badge {
+  color: #4caf50;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.manage-menu-button {
+  align-self: flex-start;
+  padding: 0.6rem 1.2rem;
+  background-color: #64b5f6;
+  color: white;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.manage-menu-button:hover {
+  background-color: #5691d6;
+}
+
+/* ==================== No Events ==================== */
+.no-events {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+}
+
+/* ==================== Loading ==================== */
+.loading-container {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+}
+
+/* ==================== Modal ==================== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: #1a1a1a;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  max-width: 35rem;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.modal-content h2 {
+  color: #ffffff;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.close-modal {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.5rem;
+  cursor: pointer;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-modal:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+/* ==================== Menu Form ==================== */
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-content label {
+  color: #ffffff;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.modal-content input[type="datetime-local"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #333;
+  color: white;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.modal-content input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #666;
+}
+
+.menu-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.menu-input-row input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #333;
+  color: white;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.add-menu-button {
+  padding: 0.75rem 1.2rem;
+  background-color: #4caf50;
+  color: white;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: 500;
+}
+
+.add-menu-button:hover {
+  background-color: #45a049;
+}
+
+.menu-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.menu-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.menu-item-row span {
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.remove-menu-button {
+  background: none;
+  border: none;
+  color: #e50914;
+  cursor: pointer;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.remove-menu-button:hover {
+  background-color: rgba(229, 9, 20, 0.2);
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.cancel-button,
+.save-button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.cancel-button {
+  background-color: #333;
+  color: #ffffff;
+}
+
+.cancel-button:hover {
+  background-color: #444;
+}
+
+.save-button {
+  background-color: #4caf50;
+  color: white;
+  flex: 1;
+}
+
+.save-button:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.save-button:disabled {
+  background-color: #333;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* ==================== Responsive ==================== */
+@media (max-width: 639px) {
+  .host-dashboard {
+    padding: 1rem 0.5rem;
+  }
+
+  .dashboard-container {
+    max-width: 100%;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .event-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .modal-content {
+    padding: 1.5rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .cancel-button,
+  .save-button {
+    width: 100%;
+  }
+}

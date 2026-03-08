@@ -19,6 +19,9 @@ export const HostAuthSystem = () => {
     title: '',
     date: '',
     location: '',
+    event_type: 'potluck' as 'potluck' | 'birthday',
+    rsvp_deadline: '',
+    schedulePreference: 'now' as 'now' | 'later',
     drop_time: '',
   });
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -66,15 +69,31 @@ export const HostAuthSystem = () => {
       return;
     }
 
+    if (!eventDetails.rsvp_deadline) {
+      alert('Please set RSVP deadline');
+      return;
+    }
+
+    // Validate RSVP deadline is before event date
+    const eventDate = new Date(eventDetails.date);
+    const rsvpDeadline = new Date(eventDetails.rsvp_deadline);
+    if (rsvpDeadline >= eventDate) {
+      alert('RSVP deadline must be before the event date');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       // Generate event ID
       const newEventId = Math.random().toString(36).substring(2, 9);
 
-      // Set default drop time if not provided (3 hours from now)
-      const dropTime = eventDetails.drop_time ||
-        new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+      // Set drop time based on schedule preference
+      let dropTime: string | undefined;
+      if (eventDetails.schedulePreference === 'now') {
+        dropTime = eventDetails.drop_time ||
+          new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+      }
 
       // Create event data object
       const eventData = {
@@ -83,7 +102,9 @@ export const HostAuthSystem = () => {
         date: eventDetails.date,
         location: eventDetails.location,
         drop_time: dropTime,
-        menu: menuItems,
+        menu: eventDetails.schedulePreference === 'now' ? menuItems : [],
+        event_type: eventDetails.event_type,
+        rsvp_deadline: eventDetails.rsvp_deadline,
         phone: phoneNumber,
         createdAt: new Date().toISOString(),
       };
@@ -161,7 +182,34 @@ export const HostAuthSystem = () => {
 
       {!magicLink ? (
         <form onSubmit={createEvent} className="event-form">
-          <h2>Create New Potluck</h2>
+          <h2>Create New Event</h2>
+
+          {/* Event Type Selection */}
+          <div className="event-type-section">
+            <label>Event Type *</label>
+            <div className="event-type-options">
+              <label className="event-type-option">
+                <input
+                  type="radio"
+                  name="event_type"
+                  value="potluck"
+                  checked={eventDetails.event_type === 'potluck'}
+                  onChange={e => setEventDetails({...eventDetails, event_type: e.target.value as 'potluck' | 'birthday'})}
+                />
+                <span>Potluck</span>
+              </label>
+              <label className="event-type-option">
+                <input
+                  type="radio"
+                  name="event_type"
+                  value="birthday"
+                  checked={eventDetails.event_type === 'birthday'}
+                  onChange={e => setEventDetails({...eventDetails, event_type: e.target.value as 'potluck' | 'birthday'})}
+                />
+                <span>Birthday</span>
+              </label>
+            </div>
+          </div>
 
           <label htmlFor="event-title">Event Title *</label>
           <input
@@ -197,48 +245,99 @@ export const HostAuthSystem = () => {
             </div>
           </div>
 
-          <label htmlFor="event-drop-time">Menu Drop Time (optional)</label>
+          {/* RSVP Deadline */}
+          <label htmlFor="rsvp-deadline">RSVP Deadline *</label>
           <input
-            id="event-drop-time"
+            id="rsvp-deadline"
             type="datetime-local"
-            value={eventDetails.drop_time ? eventDetails.drop_time.slice(0, 16) : ''}
-            onChange={e => setEventDetails({...eventDetails, drop_time: new Date(e.target.value).toISOString()})}
+            required
+            value={eventDetails.rsvp_deadline ? eventDetails.rsvp_deadline.slice(0, 16) : ''}
+            onChange={e => setEventDetails({...eventDetails, rsvp_deadline: new Date(e.target.value).toISOString()})}
           />
 
-          <h3>Menu Items</h3>
-          <div className="menu-input-row">
-            <input
-              type="text"
-              placeholder="Add menu item (e.g. Grilled Burgers)"
-              value={newMenuItem}
-              onChange={e => setNewMenuItem(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addMenuItem();
-                }
-              }}
-            />
-            <button type="button" onClick={addMenuItem} className="add-menu-button">
-              Add Item
-            </button>
-          </div>
-
-          {menuItems.length > 0 && (
-            <div className="menu-items-list">
-              {menuItems.map((item) => (
-                <div key={item.id} className="menu-item-row">
-                  <span>{item.label}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeMenuItem(item.id)}
-                    className="remove-menu-button"
-                  >
-                    ✕
-                  </button>
+          {/* Menu Section - Only for Potluck events */}
+          {eventDetails.event_type === 'potluck' && (
+            <>
+              <div className="menu-schedule-section">
+                <label>Schedule Menu</label>
+                <div className="schedule-options">
+                  <label className="schedule-option">
+                    <input
+                      type="radio"
+                      name="schedule-preference"
+                      value="now"
+                      checked={eventDetails.schedulePreference === 'now'}
+                      onChange={e => setEventDetails({...eventDetails, schedulePreference: e.target.value as 'now' | 'later'})}
+                    />
+                    <span>Now</span>
+                  </label>
+                  <label className="schedule-option">
+                    <input
+                      type="radio"
+                      name="schedule-preference"
+                      value="later"
+                      checked={eventDetails.schedulePreference === 'later'}
+                      onChange={e => setEventDetails({...eventDetails, schedulePreference: e.target.value as 'now' | 'later'})}
+                    />
+                    <span>Later (after RSVP deadline)</span>
+                  </label>
                 </div>
-              ))}
-            </div>
+              </div>
+
+              {eventDetails.schedulePreference === 'now' && (
+                <>
+                  <label htmlFor="event-drop-time">Menu Drop Time (optional)</label>
+                  <input
+                    id="event-drop-time"
+                    type="datetime-local"
+                    value={eventDetails.drop_time ? eventDetails.drop_time.slice(0, 16) : ''}
+                    onChange={e => setEventDetails({...eventDetails, drop_time: new Date(e.target.value).toISOString()})}
+                  />
+
+                  <h3>Menu Items</h3>
+                  <div className="menu-input-row">
+                    <input
+                      type="text"
+                      placeholder="Add menu item (e.g. Grilled Burgers)"
+                      value={newMenuItem}
+                      onChange={e => setNewMenuItem(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addMenuItem();
+                        }
+                      }}
+                    />
+                    <button type="button" onClick={addMenuItem} className="add-menu-button">
+                      Add Item
+                    </button>
+                  </div>
+
+                  {menuItems.length > 0 && (
+                    <div className="menu-items-list">
+                      {menuItems.map((item) => (
+                        <div key={item.id} className="menu-item-row">
+                          <span>{item.label}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeMenuItem(item.id)}
+                            className="remove-menu-button"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {eventDetails.schedulePreference === 'later' && (
+                <p className="schedule-later-note">
+                  You can add menu items and set drop time after the RSVP deadline. We'll send you a reminder.
+                </p>
+              )}
+            </>
           )}
 
           <button
@@ -261,7 +360,15 @@ export const HostAuthSystem = () => {
           onCopyLink={() => navigator.clipboard.writeText(magicLink)}
           onCreateAnother={() => {
             setMagicLink('');
-            setEventDetails({ title: '', date: '', location: '', drop_time: '' });
+            setEventDetails({
+              title: '',
+              date: '',
+              location: '',
+              event_type: 'potluck',
+              rsvp_deadline: '',
+              schedulePreference: 'now',
+              drop_time: ''
+            });
             setMenuItems([]);
             setNewMenuItem('');
           }}

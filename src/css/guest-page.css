@@ -201,6 +201,81 @@
   color: #999;
 }
 
+.dashboard-header .event-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.dashboard-header .event-type-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.dashboard-header .event-type-badge.potluck {
+  background-color: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.dashboard-header .event-type-badge.birthday {
+  background-color: rgba(233, 30, 99, 0.2);
+  color: #e91e63;
+}
+
+/* ==================== RSVP Deadline Banner ==================== */
+.rsvp-deadline-banner {
+  background-color: rgba(100, 181, 246, 0.1);
+  border: 2px solid #64b5f6;
+  padding: 1rem;
+  border-radius: 1rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.rsvp-deadline-banner .rsvp-deadline-label {
+  color: #64b5f6;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.rsvp-deadline-banner .rsvp-deadline-time {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #64b5f6;
+  font-family: monospace;
+  margin-bottom: 0.5rem;
+}
+
+.rsvp-deadline-banner .rsvp-deadline-note {
+  color: #64b5f6;
+  font-size: 0.75rem;
+  margin-top: 0;
+}
+
+/* ==================== Menu Coming Soon ==================== */
+.menu-coming-soon-message {
+  background-color: rgba(100, 181, 246, 0.1);
+  border: 2px solid #64b5f6;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.menu-coming-soon-message p {
+  color: #64b5f6;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
 /* ==================== Countdown Banner ==================== */
 .countdown-banner {
   background-color: rgba(255, 152, 0, 0.1);

@@ -14,8 +14,10 @@ export interface EventData {
   title: string;
   date: string;
   location: string;
-  drop_time: string;
+  drop_time?: string;
   menu: MenuItem[];
+  event_type: 'potluck' | 'birthday';
+  rsvp_deadline?: string;
   phone?: string | null;
   createdAt?: string;
   updatedAt?: string;
