@@ -8,7 +8,7 @@ interface MenuItem {
 interface EventDetailsCardProps {
   title: string;
   date: string;
-  eventLocation: string;
+  location: string;
   drop_time?: string;
   menuItems: MenuItem[];
   magicLink: string;
@@ -19,7 +19,7 @@ interface EventDetailsCardProps {
 export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
   title,
   date,
-  eventLocation,
+  location,
   drop_time,
   menuItems,
   magicLink,
@@ -91,7 +91,7 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
           </div>
           <div className="detail-item">
             <div className="detail-label">Location</div>
-            <div className="detail-value">{eventLocation}</div>
+            <div className="detail-value">{location}</div>
           </div>
           {drop_time && (
             <div className="detail-item">
