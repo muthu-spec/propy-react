@@ -3,6 +3,7 @@ import { Routes, Route, useParams } from "react-router-dom";
 import { Home } from './pages/home';
 import { Favorites } from "./pages/favorites";
 import { HostAuthSystem } from "./pages/host-auth";
+import { HostDashboard } from "./pages/host-dashboard";
 import GuestPage from "./pages/guest-page";
 import { NavBar } from "./components/nav-bar";
 import { MovieProvider } from "./contexts/movie-provider"
@@ -75,6 +76,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/login" element={<HostAuthSystem />} />
+          <Route path="/dashboard" element={<HostDashboard />} />
           <Route path="/join/:eventId" element={<GuestPageWrapper />} />
         </Routes>
       </main>

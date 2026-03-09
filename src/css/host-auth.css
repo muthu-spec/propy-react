@@ -719,6 +719,23 @@
   border-color: rgba(33, 150, 243, 0.5);
 }
 
+.dashboard-button {
+  background-color: #64b5f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.875rem 1.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.dashboard-button:hover {
+  background-color: #5691d6;
+}
+
 /* Responsive Styles */
 @media (max-width: 639px) {
   .details-grid {

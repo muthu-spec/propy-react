@@ -9,11 +9,12 @@ interface EventDetailsCardProps {
   title: string;
   date: string;
   location: string;
-  drop_time: string;
+  drop_time?: string;
   menuItems: MenuItem[];
   magicLink: string;
   onCopyLink: () => void;
   onCreateAnother: () => void;
+  onGoToDashboard?: () => void;
 }
 
 export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
@@ -25,8 +26,10 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
   magicLink,
   onCopyLink,
   onCreateAnother,
+  onGoToDashboard,
 }) => {
-  const formatDateTime = (isoString: string) => {
+  const formatDateTime = (isoString: string | undefined) => {
+    if (!isoString) return 'Not set';
     return new Date(isoString).toLocaleString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -50,7 +53,7 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
           </svg>
         </div>
         <h2>Event Created Successfully!</h2>
-        <p>Your potluck event is ready. Share the magic link with your guests.</p>
+        <p>Your event is ready. Share the magic link with your guests.</p>
       </div>
 
       {/* Magic Link Section */}
@@ -72,7 +75,7 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
           </button>
         </div>
         <p className="link-helper-text">
-          Guests can use this link to RSVP and claim menu items
+          Guests can use this link to RSVP
         </p>
       </div>
 
@@ -92,10 +95,12 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
             <div className="detail-label">Location</div>
             <div className="detail-value">{location}</div>
           </div>
-          <div className="detail-item">
-            <div className="detail-label">Menu Drop Time</div>
-            <div className="detail-value">{formatDateTime(drop_time)}</div>
-          </div>
+          {drop_time && (
+            <div className="detail-item">
+              <div className="detail-label">Menu Drop Time</div>
+              <div className="detail-value">{formatDateTime(drop_time)}</div>
+            </div>
+          )}
         </div>
 
         {/* Menu Items Preview */}
@@ -116,6 +121,11 @@ export const EventDetailsCard: React.FC<EventDetailsCardProps> = ({
 
       {/* Action Buttons */}
       <div className="action-buttons">
+        {onGoToDashboard && (
+          <button onClick={onGoToDashboard} className="dashboard-button">
+            Go to Dashboard
+          </button>
+        )}
         <button onClick={onCreateAnother} className="create-another-button">
           Create Another Event
         </button>
